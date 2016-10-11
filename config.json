@@ -1,0 +1,15 @@
+{
+    "bridge": {
+        "name": "YeeBridge",
+        "username": "18:00:27:40:BC:1B",
+        "port": 51825,
+        "pin": "031-45-154"
+    },
+    
+    "platforms": [
+        {
+            "platform" : "yeelight",
+            "name" : "yeelight"
+        }
+    ]
+}

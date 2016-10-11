@@ -1,0 +1,20 @@
+{
+  "name": "homebridge-yeelight",
+  "version": "0.0.1",
+  "description": "yeelight platform",
+  "license": "YEE",
+  "keywords": [
+    "homebridge-plugin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/vvpossible/yeelight.git"
+  },
+  "bugs": {
+    "url": "http://github.com/vvpossible/yeelight/issues"
+  },
+  "engines": {
+    "node": ">=0.12.0",
+    "homebridge": ">=0.2.0"
+  }
+}
