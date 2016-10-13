@@ -1,4 +1,4 @@
-var yeeLight = require('yee.js');
+var yeeLight = require('./lib/yee.js');
 var Service, Characteristic, Accessory, UUIDGen;
 
 module.exports = function(homebridge) {
