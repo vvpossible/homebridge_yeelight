@@ -6,7 +6,7 @@ var MCAST_ADDR = '239.255.255.250';
 var discMsg = new Buffer('M-SEARCH * HTTP/1.1\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb\r\n');
 
 YeeDevice = function (did, loc, model, power, bri,
-		      hue, sat) {
+		      hue, sat, cb) {
     this.did = did;
     var tmp = loc.split(":");
     var host = tmp[0];
@@ -61,33 +61,37 @@ YeeDevice = function (did, loc, model, power, bri,
 			  });
 
 	this.sock.on("data", (data) => {
-	    var json = data.toString();
+	    var msg = data.toString();
 	    var that = this;
-
-	    try {
-		JSON.parse(json,
+            var rsps = msg.split("\r\n");
+            
+            rsps.forEach(function (json, idex, array) { 
+	        try {
+		    JSON.parse(json,
 		       function(k,v) {
 			   if (k == 'power') {
-			       console.log('update power');
 			       if (v == 'on')
 				   that.power = 1;
 			       else
 				   that.power = 0;
+                               cb(that, 'power', that.power);
 			   } else if (k == 'bright') {
-			       console.log('update bright');
-			       that.bright = parseInt(v, 10);			       
+			       that.bright = parseInt(v, 10);			     
+                               cb(that, 'bright', that.bright);
 			   } else if (k == 'hue') {
-			       console.log('update hue');
-			       	that.hue = parseInt(v, 10);
+			       that.hue = parseInt(v, 10);
+                               cb(that, 'hue', that.hue);
 			   } else if (k == 'sat') {
-			       console.log('update sat');
-			       	that.sat = parseInt(v, 10);			       
+			       that.sat = parseInt(v, 10);	
+                               cb(that, 'sat', that.sat);
 			   }
 		       });
-	    } catch(e) {
-		console.log(e);
-	    }
+	        } catch(e) {
+		    //console.log(e);
+                }
+           });
 	});
+
 	this.sock.on("end", () => {
 	    console.log("peer closed the socket");
 	    that.connected = false;
@@ -236,7 +240,8 @@ exports.YeeAgent = function(ip, handler){
 					      power,
 					      bright,
 					      hue,
-					      sat
+					      sat,
+                                              this.devPropChange 
 					     );
 	    this.handler.onDevFound(this.devices[did]);
 	}
@@ -258,6 +263,10 @@ exports.YeeAgent = function(ip, handler){
 	}
     }.bind(this);
 
+    this.devPropChange = function (dev, prop, val) {
+        console.log("update property: " + prop + " value: " + val);
+        this.handler.onDevPropChange(dev, prop, val);
+    }.bind(this);
     
     this.scanSock.on('message', this.handleDiscoverMsg);
     this.discSock.on('message', this.handleDiscoverMsg);

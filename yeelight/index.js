@@ -148,6 +148,25 @@ YeePlatform.prototype = {
 	}
     },
 
+    onDevPropChange: function(dev, prop, val) {
+        var accessory = dev.ctx;
+        var character;
+        var lightbulbService = accessory.getService(Service.Lightbulb);
+
+        if (prop == "power") {
+            character = lightbulbService.getCharacteristic(Characteristic.On)
+        } else if (prop == "bright") {
+            character = lightbulbService.getCharacteristic(Characteristic.Brightness)
+        } else if (prop == "sat") {
+            character = lightbulbService.getCharacteristic(Characteristic.Saturation)
+        } else if (prop == "hue") {
+            character = lightbulbService.getCharacteristic(Characteristic.Hue)
+        } else {
+            return;
+        }
+        character.updateValue(val);
+    },
+
     configureAccessory: function(accessory) {
 	this.log(accessory.displayName, "Configure Accessory");
 	
@@ -171,7 +190,7 @@ YeePlatform.prototype = {
         dev = this.yeeAgent.getDevice(did);
 
         if (dev == null) {
-self.log("no device found for did: " + did);
+            this.log("no device found for did: " + did);
             return;
         }
 
