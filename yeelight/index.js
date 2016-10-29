@@ -36,14 +36,12 @@ function YeePlatform(log, config, api) {
 YeePlatform.prototype = {
 
     onDevFound: function(dev) {
-
-	this.log("found " + dev.did + " " + dev.connected);
-	
 	var that = this;
 	var uuid;
 	var found = 0;
 	var newAccessory = null;
 	var lightbulbService = null;
+        var name;
 	
 	for (var index in this.yeeAccessories) {
 	    var accessory = this.yeeAccessories[index];
@@ -59,10 +57,12 @@ YeePlatform.prototype = {
 	    lightbulbService = newAccessory.getService(Service.Lightbulb);
 	} else {
 	    uuid = UUIDGen.generate(dev.did);
-	    newAccessory = new Accessory("yeelight", uuid);
+            name = dev.did.substring(dev.did.length-6);
+            this.log("found dev: " + name); 
+	    newAccessory = new Accessory(name, uuid);
 	    newAccessory.context.did = dev.did;
 	    newAccessory.context.model = dev.model;
-	    lightbulbService = new Service.Lightbulb("yeelight");	    
+	    lightbulbService = new Service.Lightbulb(name);	    
 	}
 	
 	dev.ctx = newAccessory;
@@ -112,7 +112,7 @@ YeePlatform.prototype = {
 	newAccessory.reachable = true;
 
 	if (!found) {
-	    newAccessory.addService(lightbulbService);
+	    newAccessory.addService(lightbulbService, name);
 	    this.yeeAccessories.push(newAccessory);
 	    this.api.registerPlatformAccessories("homebridge-yeelight", "yeelight", [newAccessory]);
 	}
@@ -168,16 +168,13 @@ YeePlatform.prototype = {
     },
 
     configureAccessory: function(accessory) {
-	this.log(accessory.displayName, "Configure Accessory");
-	
 	var platform = this;
 
 	//accessory.updateReachability(false);
 	accessory.reachable = true;
 
 	accessory.on('identify', function(paired, callback) {
-	    platform.log(accessory.displayName, "Identify!!!");
-	    callback();
+            platform.log("identify ....");
 	});
 
 	this.yeeAccessories.push(accessory);
@@ -197,6 +194,7 @@ YeePlatform.prototype = {
 	switch(characteristic.toLowerCase()) {
 	    
 	case 'identify':
+            this.log("identfy....");
 	    dev.setBlink();
 	    break;
 	case 'power':

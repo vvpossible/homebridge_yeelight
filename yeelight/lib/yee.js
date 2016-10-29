@@ -25,6 +25,7 @@ YeeDevice = function (did, loc, model, power, bri,
     this.sock = null;
     this.ctx = null;
     this.retry_tmr = null;
+    this.retry_cnt = 0;
     
     this.update = function(loc, power, bri, hue, sat) {
 	var tmp = loc.split(":");
@@ -56,11 +57,12 @@ YeeDevice = function (did, loc, model, power, bri,
 			  this.host,
 			  function() {
 			      that.connected = true;
+                              that.retry_cnt = 0;
 			      clearTimeout(that.retry_tmr);
 			      callback(0);
 			  });
 
-	this.sock.on("data", (data) => {
+	this.sock.on("data", function(data) {
 	    var msg = data.toString();
 	    var that = this;
             var rsps = msg.split("\r\n");
@@ -92,7 +94,7 @@ YeeDevice = function (did, loc, model, power, bri,
            });
 	});
 
-	this.sock.on("end", () => {
+	this.sock.on("end", function() {
 	    console.log("peer closed the socket");
 	    that.connected = false;
 	    that.sock = null;
@@ -100,7 +102,7 @@ YeeDevice = function (did, loc, model, power, bri,
 	    that.retry_tmr = setTimeout(that.handleDiscon, 3000);	    
 	});
 		 
-	this.sock.on("error", () => {
+	this.sock.on("error", function() {
 	    console.log("socket error");
 	    that.connected = false;
 	    that.sock = null;
@@ -111,7 +113,10 @@ YeeDevice = function (did, loc, model, power, bri,
     }.bind(this);
 
     this.handleDiscon = function () {
-	console.log("retry connect...: " + this.did);	
+	console.log("retry connect (" + this.retry_cnt + ") ...: " + this.did);	
+        this.retry_cnt = this.retry_cnt + 1;
+        if (this.retry_cnt > 9) 
+            return;
 	this.connect(this.connCallback);
     }.bind(this);
     
@@ -175,7 +180,7 @@ exports.YeeAgent = function(ip, handler){
 	delete this.devices[did];
     }.bind(this);
     
-    this.discSock.bind(PORT, () => {
+    this.discSock.bind(PORT, function() {
 	console.log("add to multicast group");
 	this.discSock.setBroadcast(true);
 	this.discSock.setMulticastTTL(128);
