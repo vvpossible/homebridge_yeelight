@@ -119,7 +119,7 @@ YeePlatform.prototype = {
     },
 
     onDevConnected: function(dev) {
-	this.log("accesseory become reachable");
+	this.log("accesseory reachable");
 
 	this.log("dev connected " + dev.did + " " + dev.connected);	
 	var accessory = dev.ctx;
@@ -127,7 +127,7 @@ YeePlatform.prototype = {
     },
 
     onDevDisconnected: function(dev) {
-	this.log("accesseory become unreachable");
+	this.log("accesseory unreachable");
 
 	this.log("dev disconnected " + dev.did + " " + dev.connected);	
 	var accessory = dev.ctx;
@@ -152,6 +152,8 @@ YeePlatform.prototype = {
         var accessory = dev.ctx;
         var character;
         var lightbulbService = accessory.getService(Service.Lightbulb);
+
+        this.log("update accessory prop: " + prop + "value: " + val);
 
         if (prop == "power") {
             character = lightbulbService.getCharacteristic(Characteristic.On)

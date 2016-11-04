@@ -26,6 +26,7 @@ YeeDevice = function (did, loc, model, power, bri,
     this.ctx = null;
     this.retry_tmr = null;
     this.retry_cnt = 0;
+    this.propChangeCb = cb;
     
     this.update = function(loc, power, bri, hue, sat) {
 	var tmp = loc.split(":");
@@ -64,7 +65,6 @@ YeeDevice = function (did, loc, model, power, bri,
 
 	this.sock.on("data", function(data) {
 	    var msg = data.toString();
-	    var that = this;
             var rsps = msg.split("\r\n");
             
             rsps.forEach(function (json, idex, array) { 
@@ -76,16 +76,16 @@ YeeDevice = function (did, loc, model, power, bri,
 				   that.power = 1;
 			       else
 				   that.power = 0;
-                               cb(that, 'power', that.power);
+                               that.propChangeCb(that, 'power', that.power);
 			   } else if (k == 'bright') {
 			       that.bright = parseInt(v, 10);			     
-                               cb(that, 'bright', that.bright);
+                               that.propChangeCb(that, 'bright', that.bright);
 			   } else if (k == 'hue') {
 			       that.hue = parseInt(v, 10);
-                               cb(that, 'hue', that.hue);
+                               that.propChangeCb(that, 'hue', that.hue);
 			   } else if (k == 'sat') {
 			       that.sat = parseInt(v, 10);	
-                               cb(that, 'sat', that.sat);
+                               that.propChangeCb(that, 'sat', that.sat);
 			   }
 		       });
 	        } catch(e) {
@@ -168,7 +168,7 @@ exports.YeeAgent = function(ip, handler){
     this.scanSock = dgram.createSocket('udp4');
     this.devices = {};
     this.handler = handler;
-
+    
     this.getDevice = function(did) {
 	if (did in this.devices)
 	    return this.devices[did];
@@ -269,7 +269,7 @@ exports.YeeAgent = function(ip, handler){
     }.bind(this);
 
     this.devPropChange = function (dev, prop, val) {
-        console.log("update property: " + prop + " value: " + val);
+        console.log(dev.did + " property change: " + prop + " value: " + val);
         this.handler.onDevPropChange(dev, prop, val);
     }.bind(this);
     
