@@ -57,13 +57,14 @@ YeePlatform.prototype = {
 	    lightbulbService = newAccessory.getService(Service.Lightbulb);
 	} else {
 	    uuid = UUIDGen.generate(dev.did);
-            name = dev.did.substring(dev.did.length-6);
+            name = dev.did.name || dev.did.substring(dev.did.length-6);
             this.log("found dev: " + name); 
 	    newAccessory = new Accessory(name, uuid);
 	    newAccessory.context.did = dev.did;
 	    newAccessory.context.model = dev.model;
 	    lightbulbService = new Service.Lightbulb(name);	    
 	}
+
 	
 	dev.ctx = newAccessory;
 	

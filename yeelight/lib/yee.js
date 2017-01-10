@@ -6,7 +6,7 @@ var MCAST_ADDR = '239.255.255.250';
 var discMsg = new Buffer('M-SEARCH * HTTP/1.1\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb\r\n');
 
 YeeDevice = function (did, loc, model, power, bri,
-		      hue, sat, cb) {
+		      hue, sat, name, cb) {
     this.did = did;
     var tmp = loc.split(":");
     var host = tmp[0];
@@ -14,6 +14,8 @@ YeeDevice = function (did, loc, model, power, bri,
     this.host = host;
     this.port = parseInt(port, 10);
     this.model = model;
+    this.name = name;
+
     if (power == 'on')
 	this.power = 1;
     else
@@ -28,7 +30,7 @@ YeeDevice = function (did, loc, model, power, bri,
     this.retry_cnt = 0;
     this.propChangeCb = cb;
     
-    this.update = function(loc, power, bri, hue, sat) {
+    this.update = function(loc, power, bri, hue, sat, name) {
 	var tmp = loc.split(":");
 	var host = tmp[0];
 	var port = tmp[1];
@@ -41,6 +43,7 @@ YeeDevice = function (did, loc, model, power, bri,
 	this.bright = bri;
 	this.hue = parseInt(hue, 10);
 	this.sat = parseInt(sat, 10);
+	this.name = name;
     }.bind(this);
 
     this.connect = function(callback) {
@@ -148,6 +151,13 @@ YeeDevice = function (did, loc, model, power, bri,
 	var req = {id:1, method:'start_cf',
 		   params:[6,0,'500,2,4000,1,500,2,4000,50']};
     }.bind(this);
+
+    this.setName = function (name) {
+   	this.name = name;
+	var req = {id:1, method:'set_name',
+		   params:[new Buffer(name).toString('base64')]};
+	this.sendCmd(req);
+    }.bind(this);
     
     this.sendCmd = function(cmd) {
 	if (this.sock == null || this.connected == false) {
@@ -201,6 +211,7 @@ exports.YeeAgent = function(ip, handler){
 	model = "";
 	hue = "";
 	sat = "";
+	name = "";
 
 	headers = message.toString().split("\r\n");
 	
@@ -219,6 +230,8 @@ exports.YeeAgent = function(ip, handler){
 		hue = headers[i].slice(5);
 	    if (headers[i].indexOf("sat:") >= 0)
 		sat = headers[i].slice(5);
+		if (headers[i].indexOf("name:") >= 0)
+		name = new Buffer(headers[i].slice(6), 'base64').toString('utf8');
 	}
 	if (did == "" || loc == "" || model == ""
 	    || power == "" || bright == "") {
@@ -237,7 +250,7 @@ exports.YeeAgent = function(ip, handler){
 				     power,
 				     bright,
 				     hue,
-				     sat);
+				     sat, name);
 	} else {
 	    this.devices[did] = new YeeDevice(did,
 					      loc,
@@ -245,11 +258,12 @@ exports.YeeAgent = function(ip, handler){
 					      power,
 					      bright,
 					      hue,
-					      sat,
+					      sat, name,
                                               this.devPropChange 
 					     );
 	    this.handler.onDevFound(this.devices[did]);
 	}
+
 
 	if (this.devices[did].connected == false &&
 	    this.devices[did].sock == null) {
