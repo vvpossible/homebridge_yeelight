@@ -231,7 +231,7 @@ exports.YeeAgent = function(ip, handler){
 	    if (headers[i].indexOf("sat:") >= 0)
 		sat = headers[i].slice(5);
 		if (headers[i].indexOf("name:") >= 0)
-		name = new Buffer(headers[i].slice(6), 'base64').toString('ascii');
+		name = new Buffer(headers[i].slice(6), 'base64').toString('utf8');
 	}
 	if (did == "" || loc == "" || model == ""
 	    || power == "" || bright == "") {
