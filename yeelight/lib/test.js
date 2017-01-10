@@ -8,8 +8,9 @@ function onDevFound(dev) {
 };
 
 function onDevConn(dev) {
-    console.log("dev conn: " + dev.did);
+    console.log("dev conn: " + dev.did + " " + dev.name);
     dev.setPower(1);
+    dev.setName("Light");
 };
 
 function onDevDiscon(dev) {
@@ -17,4 +18,5 @@ function onDevDiscon(dev) {
 };
 
 api.startDisc();
+
 
