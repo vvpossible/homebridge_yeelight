@@ -27,6 +27,8 @@ YeeDevice = function (did, loc, model, power, bri,
     this.sock = null;
     this.ctx = null;
     this.retry_tmr = null;
+    this.hb_tmr = null;
+    this.hb_lost = 0;
     this.retry_cnt = 0;
     this.propChangeCb = cb;
     
@@ -43,7 +45,7 @@ YeeDevice = function (did, loc, model, power, bri,
 	this.bright = bri;
 	this.hue = parseInt(hue, 10);
 	this.sat = parseInt(sat, 10);
-	this.name = name;
+        this.name = name;
     }.bind(this);
 
     this.connect = function(callback) {
@@ -62,9 +64,30 @@ YeeDevice = function (did, loc, model, power, bri,
 			  function() {
 			      that.connected = true;
                               that.retry_cnt = 0;
+                              that.sock.setNoDelay(true);
 			      clearTimeout(that.retry_tmr);
+	                      that.hb_tmr = setInterval(that.handleHb, 10000);	    
+                              that.hb_lost = 0;
 			      callback(0);
 			  });
+
+        this.handleHb = function () {
+
+            that.hb_lost ++;
+
+            if (that.hb_lost > 2) {
+                console.log("heartbeat lost, close socket and reconnect");
+                that.handleSockError();
+                return;
+            }
+
+	    console.log("send hb to: " + that.did);	
+
+            var req = {id:-1, method:'get_prop',
+                       params:['power']};
+            that.sendCmd(req);
+        };
+
 
 	this.sock.on("data", function(data) {
 	    var msg = data.toString();
@@ -74,6 +97,10 @@ YeeDevice = function (did, loc, model, power, bri,
 	        try {
 		    JSON.parse(json,
 		       function(k,v) {
+                           if (k == 'id' && v == -1) {
+                               that.hb_lost = 0;
+                           } 
+                           
 			   if (k == 'power') {
 			       if (v == 'on')
 				   that.power = 1;
@@ -97,23 +124,18 @@ YeeDevice = function (did, loc, model, power, bri,
            });
 	});
 
-	this.sock.on("end", function() {
-	    console.log("peer closed the socket");
-	    that.connected = false;
-	    that.sock = null;
-	    that.connCallback(-1);
-	    that.retry_tmr = setTimeout(that.handleDiscon, 3000);	    
-	});
-		 
-	this.sock.on("error", function() {
-	    console.log("socket error");
-	    that.connected = false;
-	    that.sock = null;
-	    that.connCallback(-1);
-	    that.retry_tmr = setTimeout(that.handleDiscon, 3000);	    
-	});
-	
+	this.sock.on("end", that.handleSockError);
+        this.sock.on("error", that.handleSockError);		 
     }.bind(this);
+
+    this.handleSockError = function () {
+        console.log("closed the socket and retry");
+	this.connected = false;
+	this.sock = null;
+	this.connCallback(-1);
+	this.retry_tmr = setTimeout(this.handleDiscon, 3000);	    
+        clearTimeout(this.hb_tmr);
+    }.bind(this);	
 
     this.handleDiscon = function () {
 	console.log("retry connect (" + this.retry_cnt + ") ...: " + this.did);	
@@ -151,14 +173,14 @@ YeeDevice = function (did, loc, model, power, bri,
 	var req = {id:1, method:'start_cf',
 		   params:[6,0,'500,2,4000,1,500,2,4000,50']};
     }.bind(this);
-
+   
     this.setName = function (name) {
    	this.name = name;
 	var req = {id:1, method:'set_name',
 		   params:[new Buffer(name).toString('base64')]};
 	this.sendCmd(req);
     }.bind(this);
-    
+ 
     this.sendCmd = function(cmd) {
 	if (this.sock == null || this.connected == false) {
 	    console.log("connection broken" + this.connected + "\n" + this.sock);
@@ -211,7 +233,7 @@ exports.YeeAgent = function(ip, handler){
 	model = "";
 	hue = "";
 	sat = "";
-	name = "";
+        name = "";
 
 	headers = message.toString().split("\r\n");
 	
@@ -230,7 +252,7 @@ exports.YeeAgent = function(ip, handler){
 		hue = headers[i].slice(5);
 	    if (headers[i].indexOf("sat:") >= 0)
 		sat = headers[i].slice(5);
-		if (headers[i].indexOf("name:") >= 0)
+	    if (headers[i].indexOf("name:") >= 0)
 		name = new Buffer(headers[i].slice(6), 'base64').toString('utf8');
 	}
 	if (did == "" || loc == "" || model == ""
@@ -263,7 +285,6 @@ exports.YeeAgent = function(ip, handler){
 					     );
 	    this.handler.onDevFound(this.devices[did]);
 	}
-
 
 	if (this.devices[did].connected == false &&
 	    this.devices[did].sock == null) {
