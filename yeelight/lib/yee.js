@@ -1,5 +1,15 @@
 var net = require("net");
 var dgram = require('dgram');
+var noble = null;
+
+var bleCmd = [];
+bleCmd.length = 18;
+
+try {
+    var noble = require('noble');
+} catch (ex) {
+    console.log("failed to load BLE module!");
+}
 
 var PORT = 1982;
 var MCAST_ADDR = '239.255.255.250';
@@ -31,6 +41,11 @@ YeeDevice = function (did, loc, model, power, bri,
     this.hb_lost = 0;
     this.retry_cnt = 0;
     this.propChangeCb = cb;
+
+    this.bleDevRWHdl = null
+    this.bleDevNotifyHdl = null;
+    this.discovering = 0;
+
     
     this.update = function(loc, power, bri, hue, sat, name) {
 	var tmp = loc.split(":");
@@ -144,18 +159,50 @@ YeeDevice = function (did, loc, model, power, bri,
             return;
 	this.connect(this.connCallback);
     }.bind(this);
-    
+   
+    this.sendBLECmd = function () {
+        if (!this.bleDevRWHdl)
+            return;
+
+        this.bleDevRWHdl.write(new Buffer(bleCmd), false, function(error) { 
+        }); 
+    }.bind(this); 
+
     this.setPower = function(is_on) {
         this.power = is_on;
+
+        if (this.model == "bedside") {
+            bleCmd[0] = 0x43;
+            bleCmd[1] = 0x40;
+            if (is_on) 
+                bleCmd[2] = 0x01;   
+            else 
+                bleCmd[2] = 0x02;  
+
+            this.sendBLECmd();
+            return;
+        } 
+
         var on_off = "on";
         if (!is_on)
             on_off = "off";
 	var req = {id:1, method:'set_power', params:[on_off, "smooth", 500]};
+
 	this.sendCmd(req);
     }.bind(this);
 
     this.setBright = function(val) {
         this.bright = val;
+
+        if (this.model == "bedside") {
+            bleCmd[0] = 0x43;
+            bleCmd[1] = 0x42;
+            bleCmd[2] = parseInt(val.toString(16), 16);
+
+            this.sendBLECmd();
+            return;
+        }
+
 	var req = {id:1, method:'set_bright',
 		   params:[val, 'smooth', 500]};
 	this.sendCmd(req);
@@ -164,6 +211,22 @@ YeeDevice = function (did, loc, model, power, bri,
     this.setColor = function (hue, sat) {
         this.hue = hue;
         this.sat = sat;
+
+        if (this.model == "bedside") {
+            rgb = hsv2rgb(parseFloat(hue/360), parseFloat(sat/100), 1);
+           
+            bleCmd[0] = 0x43;
+            bleCmd[1] = 0x41;
+            bleCmd[2] = parseInt(rgb.r.toString(16), 16);
+            bleCmd[3] = parseInt(rgb.g.toString(16), 16);
+            bleCmd[4] = parseInt(rgb.b.toString(16), 16);
+            bleCmd[5] = 0xFF;
+            bleCmd[6] = 0x65;
+
+            this.sendBLECmd();
+            return;
+        }
+
 	var req = {id:1, method:'set_hsv',
 		   params:[hue, sat, 'smooth', 500]};
 	this.sendCmd(req);
@@ -200,6 +263,8 @@ exports.YeeAgent = function(ip, handler){
     this.scanSock = dgram.createSocket('udp4');
     this.devices = {};
     this.handler = handler;
+    this.bleScanTmr = null;
+    this.bleStopTmr = null;
     
     this.getDevice = function(did) {
 	if (did in this.devices)
@@ -312,11 +377,186 @@ exports.YeeAgent = function(ip, handler){
     this.discSock.on('message', this.handleDiscoverMsg);
     
     this.startDisc = function() {
+        var that = this;
+
 	this.scanSock.send(discMsg,
 			   0,
 			   discMsg.length,
 			   PORT,
 			   MCAST_ADDR);
+
+        if (!noble) {
+            console.log("no ble cap, skip ble device discovery");
+            return;
+        }
+     
+        noble.on('stateChange', function(state) {
+            if (state == 'poweredOn') {
+                that.bleScanTmr = setTimeout(that.scanBLE, 16000);
+                that.bleStopTmr = setTimeout(that.stopScanBLE, 8000);
+                noble.startScanning();
+            } else {
+                noble.stopScanning();
+            }
+        });
+
+        noble.on('discover', function(peripheral) {
+            var localName = peripheral.advertisement.localName
+             
+            if (localName && localName.indexOf("XMCTD_") >= 0) {
+                console.log("found Yeelight Bedside lamp: " + peripheral.address);
+                that.handleBLEDevice(peripheral);                
+            }
+        });
+    }.bind(this);
+
+
+    this.scanBLE = function() {
+        noble.startScanning();
+        this.bleScanTmr = setTimeout(this.scanBLE, 16000);
+        this.bleStopTmr = setTimeout(this.stopScanBLE, 8000);
+        console.log("start new round of scan");
+    }.bind(this);
+
+    this.stopScanBLE = function() {
+        noble.stopScanning();
+        console.log("stop this round of scan");
+    }.bind(this);
+
+    this.handleBLEDevice = function(pdev) { 
+        var did = pdev.address;
+        var that = this;
+
+
+        if (did in that.devices) {
+            console.log("already in device list: " + did);
+        } else {
+            that.devices[did] = new YeeDevice(did,
+                                              "0.0.0.0:0",
+                                              "bedside",
+                                              "on",
+                                              "100",
+                                              "360",
+                                              "100", "unknown",
+                                              that.devPropChange
+                                             );
+            this.handler.onDevFound(that.devices[did]);
+        }
+
+        if (that.devices[did].connected == false) {
+            if (that.devices[did].discovering) {
+                console.log("still discovering");
+                return;
+            }
+     
+            pdev.disconnect();
+            that.devices[did].discovering = 1;
+            setTimeout(function() { 
+                console.log("stop discovering");
+                that.devices[did].discovering = 0; 
+                }, 
+            10000);
+
+            pdev.connect(function(ret) {
+                if (ret < 0) {
+                    console.log("failed to connect!");
+                    that.handler.onDevDisconnected(that.devices[did]);
+                } else {
+                    console.log("connect ok: " + did);
+                  
+                    pdev.discoverServices(['8e2f0cbd1a664b53ace6b494e25f87bd'], function(error, services) {
+                        console.log('discovered services');
+                        that.devices[did].discovering = 0; 
+                        var deviceInformationService = services[0];
+                     
+                        deviceInformationService.discoverCharacteristics(
+                             ['aa7d3f342d4f41e0807f52fbf8cf7443', '8f65073d9f574aaaafea397d19d5bbeb'], 
+                             function(error, characteristics) {
+                                 that.devices[did].bleDevRWHdl = characteristics[0]; 
+                                 that.devices[did].bleDevNotifyHdl = characteristics[1]; 
+                                 that.devices[did].bleDevNotifyHdl.on('data', function(data, isNotify) {
+                                     that.handleBLENotify(did, data, isNotify);
+                                 });
+
+                                 that.devices[did].bleDevNotifyHdl.subscribe(function(error) {
+                                     console.log('ble notification on');
+                                     // 43 67 for auth
+                                     bleCmd[0] = 0x43;
+                                     bleCmd[1] = 0x67;
+                                     // deadbeef as magic for our Pi
+                                     bleCmd[2] = 0xde;
+                                     bleCmd[3] = 0xad;
+                                     bleCmd[4] = 0xbe;
+                                     bleCmd[5] = 0xbf;
+
+                                     that.devices[did].sendBLECmd();
+                                     that.devices[did].connected = true;
+                                     that.handler.onDevConnected(that.devices[did]);
+                               });
+                        });
+                    });
+                }
+            });
+        } else {
+            console.log("lose connection with BLE: " + pdev.address);
+
+            if (that.devices[did].bleDevNotifyHdl) {
+                  that.devices[did].bleDevNotifyHdl.unsubscribe(function(error) {
+                  console.log('ble notification off');
+                  });
+            }
+            that.devices[did].bleDevRWHdl = null;
+            that.devices[did].bleDevNotifyHdl = null;
+            that.devices[did].connected = false;
+            that.handler.onDevDisconnected(that.devices[did]);
+        }
+    }.bind(this);
+
+    this.handleBLENotify = function(did, data, isNotify) {
+        console.log("receive notify for did: " + did);
+
+        dev = this.devices[did]; 
+   
+        if (data[0] == 0x43 && data[1] == 0x45) { 
+            if (data[2] == 1)
+                dev.propChangeCb(dev, 'power', 1); 
+            else 
+                dev.propChangeCb(dev, 'power', 0);
+
+            dev.propChangeCb(dev, 'bright', data[8]);
+
+            console.log("power: " + data[2] + " bright: " + data[8]);
+        }   
     }.bind(this);
 };
 
+/* accepts parameters
+ * h  Object = {h:x, s:y, v:z}
+ * OR 
+ * h, s, v
+*/
+function hsv2rgb(h, s, v) {
+    var r, g, b, i, f, p, q, t;
+    if (arguments.length === 1) {
+        s = h.s, v = h.v, h = h.h;
+    }
+
+    i = Math.floor(h * 6);
+    f = h * 6 - i;
+    p = v * (1 - s);
+    q = v * (1 - f * s);
+    t = v * (1 - (1 - f) * s);
+    switch (i % 6) {
+        case 0: r = v, g = t, b = p; break;
+        case 1: r = q, g = v, b = p; break;
+        case 2: r = p, g = v, b = t; break;
+        case 3: r = p, g = q, b = v; break;
+        case 4: r = t, g = p, b = v; break;
+        case 5: r = v, g = p, b = q; break;
+    }
+    return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+    };
+}

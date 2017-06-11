@@ -1,6 +1,7 @@
 var yeeLight = require('./lib/yee.js');
 var Service, Characteristic, Accessory, UUIDGen;
 
+
 module.exports = function(homebridge) {
     Accessory = homebridge.platformAccessory;
     
@@ -79,7 +80,7 @@ YeePlatform.prototype = {
 		.on('set', function(value, callback) { that.exeCmd(dev.did, "brightness", value, callback);})
 		.value = dev.bright;
 
-	    if (dev.model == "color" || dev.model == "stripe") {
+	    if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside") {
 		lightbulbService
 		    .addCharacteristic(Characteristic.Hue)
 		    .on('set', function(value, callback) { that.exeCmd(dev.did, "hue", value, callback);})
@@ -96,7 +97,7 @@ YeePlatform.prototype = {
 		.on('set', function(value, callback) { that.exeCmd(dev.did, "brightness", value, callback);})
 		.value = dev.bright;
 
-	    if (dev.model == "color" || dev.model == "stripe") {
+	    if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside") {
 		lightbulbService
 		    .getCharacteristic(Characteristic.Hue)
 		    .on('set', function(value, callback) { that.exeCmd(dev.did, "hue", value, callback);})
