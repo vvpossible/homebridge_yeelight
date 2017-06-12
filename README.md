@@ -28,3 +28,20 @@ This repository contains the Yeelight plugin for homebridge.
 
         $ npm install -g homebridge-yeelight
         $ homebridge
+
+
+### About Yeelight bedside lamp (BLE device) 
+BLE device can only be supported by Raspberry Pi 3. If you want to make Yeelight bedside lamp work with other hardware running homebridge, please try to install a bluetooth dongle and make sure it's working properly. Following is the procedure for Pi 3 users:
+
+1. sudo apt-get install libbluetooth-dev
+
+2. sudo npm install -g noble
+
+3. sudo apt-get install libcap2-bin
+
+4. sudo setcap cap_net_raw+eip $(eval readlink -f `which node`) 
+
+5. update homebridge-yeelight to latest version and restart homebridge service.
+
+6. When you connect your bedside lamp for 1st time, remember to press the Mode button after your see the breathing effect. This is to authorize your Pi to access bedside lamp's services.  
+ 
