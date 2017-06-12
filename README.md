@@ -39,7 +39,10 @@ BLE device can only be supported by Raspberry Pi 3. If you want to make Yeelight
 
 3. sudo apt-get install libcap2-bin
 
-4. sudo setcap cap_net_raw+eip $(eval readlink -f `which node`) 
+4. Run following command:
+```sh
+sudo setcap cap_net_raw+eip $(eval readlink -f `which node`)
+``` 
 
 5. update homebridge-yeelight to latest version and restart homebridge service.
 
