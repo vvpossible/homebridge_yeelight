@@ -67,17 +67,16 @@ YeeDevice = function (did, loc, model, power, bri,
 	var that = this;
 	
 	if (this.connected == true) {
-	    callback(0);
 	    return;
 	}
-	
+        this.connected = true;
+
 	this.connCallback = callback;
 	
 	this.sock = new net.Socket();
 	this.sock.connect(this.port,
 			  this.host,
 			  function() {
-			      that.connected = true;
                               that.retry_cnt = 0;
                               that.sock.setNoDelay(true);
 			      clearTimeout(that.retry_tmr);
