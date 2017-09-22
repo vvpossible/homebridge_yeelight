@@ -25,7 +25,6 @@ YeeDevice = function (did, loc, model, power, bri,
     this.port = parseInt(port, 10);
     this.model = model;
     this.name = name;
-
     if (power == 'on')
 	this.power = 1;
     else

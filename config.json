@@ -10,6 +10,9 @@
         {
             "platform" : "yeelight",
             "name" : "yeelight"
+            "defaultValue": {
+                "0x00000000032d5bde":"卧室台灯"
+            }
         }
     ]
 }
