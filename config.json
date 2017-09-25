@@ -9,7 +9,8 @@
     "platforms": [
         {
             "platform" : "yeelight",
-            "name" : "yeelight"
+            "name" : "yeelight",
+            "broadcastAddress" : "0.0.0.0"
         }
     ]
 }
