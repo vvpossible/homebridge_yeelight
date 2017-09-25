@@ -18,6 +18,9 @@ function YeePlatform(log, config, api) {
     this.log = log;
     this.config = config;
     this.yeeAccessories = [];
+    this.broadcastAddress = "0.0.0.0";
+	
+    if(config["broadcastAddress"]) this.broadcastAddress = config["broadcastAddress"];
     
     var platform = this;
     
@@ -27,7 +30,7 @@ function YeePlatform(log, config, api) {
 	this.api.on('didFinishLaunching', function() {
 	    platform.log("DidFinishLaunching");
 	    
-            platform.yeeAgent = new yeeLight.YeeAgent("0.0.0.0", platform);
+            platform.yeeAgent = new yeeLight.YeeAgent(platform.broadcastAddress, platform);
             platform.yeeAgent.startDisc();
 	    
 	}.bind(this));
