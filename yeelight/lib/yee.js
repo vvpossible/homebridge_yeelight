@@ -98,7 +98,7 @@ YeeDevice = function (did, loc, model, power, bri,
 	    console.log("send hb to: " + that.did);	
 
             var req = {id:-1, method:'get_prop',
-                       params:['power']};
+                       params:['power', 'bright', 'rgb']};
             that.sendCmd(req);
         };
 
@@ -130,7 +130,11 @@ YeeDevice = function (did, loc, model, power, bri,
 			   } else if (k == 'sat') {
 			       that.sat = parseInt(v, 10);	
                                that.propChangeCb(that, 'sat', that.sat);
-			   }
+			   } else if (k == 'rgb') {
+                   [that.hue, that.sat] = rgbToHsv(parseInt(v, 10));
+                   that.propChangeCb(that, 'hue', that.hue);
+                   that.propChangeCb(that, 'sat', that.sat);
+               }
 		       });
 	        } catch(e) {
 		    //console.log(e);
@@ -226,6 +230,10 @@ YeeDevice = function (did, loc, model, power, bri,
             return;
         }
 
+        if (!this.power) {
+            this.setPower(1);
+        }
+
 	var req = {id:1, method:'set_hsv',
 		   params:[hue, sat, 'smooth', 500]};
 	this.sendCmd(req);
@@ -300,7 +308,6 @@ exports.YeeAgent = function(ip, handler){
         name = "";
 
 	headers = message.toString().split("\r\n");
-	
 	for (i = 0; i < headers.length; i++) {
 	    if (headers[i].indexOf("id:") >= 0)
 		did = headers[i].slice(4);
@@ -558,4 +565,32 @@ function hsv2rgb(h, s, v) {
         g: Math.round(g * 255),
         b: Math.round(b * 255)
     };
+}
+
+
+function rgbToHsv(rgb) {
+
+    var r = ((rgb & 0xFF0000) >> 16) / 255.0;
+    var g = ((rgb & 0xFF00) >> 8) / 255.0;
+    var b = ((rgb & 0xFF)) / 255.0;
+
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h, s, v = max;
+
+    var d = max - min;
+    s = max == 0 ? 0 : d / max;
+
+    if (max == min) {
+        h = 0; // achromatic
+    } else {
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+
+        h /= 6;
+    }
+
+    return [ Math.round(h * 360), Math.round(s * 100)];
 }
