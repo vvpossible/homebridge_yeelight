@@ -16,7 +16,7 @@ var MCAST_ADDR = '239.255.255.250';
 var discMsg = new Buffer('M-SEARCH * HTTP/1.1\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb\r\n');
 
 YeeDevice = function (did, loc, model, power, bri,
-		      hue, sat, name, cb) {
+        hue, sat, ct, name, cb) {
     this.did = did;
     var tmp = loc.split(":");
     var host = tmp[0];
@@ -36,6 +36,7 @@ YeeDevice = function (did, loc, model, power, bri,
     this.connected = false;
     this.sock = null;
     this.ctx = null;
+    this.ct = transform_ct(ct, this.model, 'dev_to_hk');
     this.retry_tmr = null;
     this.hb_tmr = null;
     this.hb_lost = 0;
@@ -47,7 +48,7 @@ YeeDevice = function (did, loc, model, power, bri,
     this.discovering = 0;
 
     
-    this.update = function(loc, power, bri, hue, sat, name) {
+    this.update = function(loc, power, bri, hue, sat, ct, name) {
 	var tmp = loc.split(":");
 	var host = tmp[0];
 	var port = tmp[1];
@@ -60,6 +61,7 @@ YeeDevice = function (did, loc, model, power, bri,
 	this.bright = bri;
 	this.hue = parseInt(hue, 10);
 	this.sat = parseInt(sat, 10);
+    this.ct = transform_ct(ct, this.model, 'dev_to_hk');
         this.name = name;
     }.bind(this);
 
@@ -134,6 +136,9 @@ YeeDevice = function (did, loc, model, power, bri,
                    [that.hue, that.sat] = rgbToHsv(parseInt(v, 10));
                    that.propChangeCb(that, 'hue', that.hue);
                    that.propChangeCb(that, 'sat', that.sat);
+               } else if (k == 'ct') {
+                   that.ct = transform_ct(v, that.model, 'dev_to_hk');
+                   that.propChangeCb(that, 'ct', that.ct);
                }
 		       });
 	        } catch(e) {
@@ -239,6 +244,20 @@ YeeDevice = function (did, loc, model, power, bri,
 	this.sendCmd(req);
     }.bind(this);
 
+    this.setCT = function (ct) {
+        this.ct = ct;
+
+        if (!this.power) {
+            this.setPower(1);
+        }
+
+        var trans_ct = transform_ct(ct, this.model, 'hk_to_dev');
+
+        var req = {id:1, method:'set_ct_abx',
+            params:[trans_ct, 'smooth', 500]};
+        this.sendCmd(req);
+    }.bind(this);
+
     this.setBlink = function () {
 	var req = {id:1, method:'start_cf',
 		   params:[6,0,'500,2,4000,1,500,2,4000,50']};
@@ -305,6 +324,7 @@ exports.YeeAgent = function(ip, handler){
 	model = "";
 	hue = "";
 	sat = "";
+    ct = "";
         name = "";
 
 	headers = message.toString().split("\r\n");
@@ -323,6 +343,8 @@ exports.YeeAgent = function(ip, handler){
 		hue = headers[i].slice(5);
 	    if (headers[i].indexOf("sat:") >= 0)
 		sat = headers[i].slice(5);
+        if (headers[i].indexOf("ct:") >= 0)
+            ct =  headers[i].slice(4);
 	    if (headers[i].indexOf("name:") >= 0)
 		name = new Buffer(headers[i].slice(6), 'base64').toString('utf8');
 	}
@@ -343,7 +365,7 @@ exports.YeeAgent = function(ip, handler){
 				     power,
 				     bright,
 				     hue,
-				     sat, name);
+				     sat, ct, name);
 	} else {
 	    this.devices[did] = new YeeDevice(did,
 					      loc,
@@ -351,7 +373,7 @@ exports.YeeAgent = function(ip, handler){
 					      power,
 					      bright,
 					      hue,
-					      sat, name,
+					      sat, ct, name,
                                               this.devPropChange 
 					     );
 	    this.handler.onDevFound(this.devices[did]);
@@ -593,4 +615,36 @@ function rgbToHsv(rgb) {
     }
 
     return [ Math.round(h * 360), Math.round(s * 100)];
+}
+
+function line_map(x1, y1, x2, y2, x) {
+    var k = (y2 - y1) / (x2 -x1);
+    var b = y1 - k * x1;
+
+    return parseInt(k * x + b);
+}
+
+function transform_ct(ct, model, type) {
+
+    var color_pattern = /color.*/g;
+    var min_ct = 1700;
+    var max_ct = 6500;
+    var min_hk_ct = 500;
+    var max_hk_ct = 140;
+
+    if (model.search(color_pattern) !== -1) {
+    } else {
+        min_ct = 2700;
+    }
+
+    if (type == 'hk_to_dev') {
+        //from [140, 500]
+        var trans_ct = line_map(min_hk_ct, min_ct, max_hk_ct, max_ct, parseInt(ct, 10));
+        return trans_ct;
+    } else if (type == 'dev_to_hk') {
+        var trans_ct = line_map(min_ct, min_hk_ct, max_ct, max_hk_ct, parseInt(ct, 10));
+        return trans_ct;
+    } else {
+        console.log("ct transform error" + type);
+    }
 }
