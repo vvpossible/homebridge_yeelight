@@ -111,6 +111,18 @@ YeePlatform.prototype = {
 	    }	    
 	}
 
+
+    if (dev.model.search(/color.*/g) !== -1 || dev.model.search(/strip.*/g) !== -1) {
+    } else {
+        if (dev.model !== 'mono' && dev.model !== 'ceiling2') {
+            lightbulbService.addOptionalCharacteristic(Characteristic.ColorTemperature);
+            lightbulbService.getCharacteristic(Characteristic.ColorTemperature)
+                .on('set', function(value, callback) { that.exeCmd(dev.did, "ct", value, callback)})
+                .on('get', function(callback){callback(null, dev.ct);})
+                .updateValue(dev.ct);
+        }
+    }
+
 	newAccessory.reachable = true;
 
 	if (!found) {
@@ -165,6 +177,8 @@ YeePlatform.prototype = {
             character = lightbulbService.getCharacteristic(Characteristic.Saturation)
         } else if (prop == "hue") {
             character = lightbulbService.getCharacteristic(Characteristic.Hue)
+        } else if (prop == "ct") {
+            character = lightbulbService.getCharacteristic(Characteristic.ColorTemperature)
         } else {
             return;
         }
@@ -213,6 +227,9 @@ YeePlatform.prototype = {
 	case 'saturation':
 	    dev.setColor(dev.hue, value);
 	    break;
+    case 'ct':
+        dev.setCT(value);
+        break;
 	default:
 	    break;
 	}
