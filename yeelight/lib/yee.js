@@ -626,16 +626,10 @@ function line_map(x1, y1, x2, y2, x) {
 
 function transform_ct(ct, model, type) {
 
-    var color_pattern = /color.*/g;
-    var min_ct = 1700;
+    var min_ct = 2700;
     var max_ct = 6500;
     var min_hk_ct = 500;
     var max_hk_ct = 140;
-
-    if (model.search(color_pattern) !== -1) {
-    } else {
-        min_ct = 2700;
-    }
 
     if (type == 'hk_to_dev') {
         //from [140, 500]

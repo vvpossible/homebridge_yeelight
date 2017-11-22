@@ -114,7 +114,7 @@ YeePlatform.prototype = {
 
     if (dev.model.search(/color.*/g) !== -1 || dev.model.search(/strip.*/g) !== -1) {
     } else {
-        if (dev.model !== 'mono') {
+        if (dev.model !== 'mono' && dev.model != 'celling2') {
             lightbulbService.addOptionalCharacteristic(Characteristic.ColorTemperature);
             lightbulbService.getCharacteristic(Characteristic.ColorTemperature)
                 .on('set', function(value, callback) { that.exeCmd(dev.did, "ct", value, callback)})
