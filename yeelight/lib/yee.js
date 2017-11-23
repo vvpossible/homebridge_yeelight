@@ -25,7 +25,6 @@ YeeDevice = function (did, loc, model, power, bri,
     this.port = parseInt(port, 10);
     this.model = model;
     this.name = name;
-
     if (power == 'on')
 	this.power = 1;
     else
@@ -97,7 +96,7 @@ YeeDevice = function (did, loc, model, power, bri,
                 return;
             }
 
-	    console.log("send hb to: " + that.did);	
+	    //console.log("send hb to: " + that.did);	
 
             var req = {id:-1, method:'get_prop',
                        params:['power', 'bright', 'rgb']};
@@ -277,7 +276,7 @@ YeeDevice = function (did, loc, model, power, bri,
 	}
 	var msg = JSON.stringify(cmd);
 
-	console.log(msg);
+	//console.log(msg);
 	
 	this.sock.write(msg + "\r\n");
     }.bind(this);
