@@ -202,6 +202,7 @@ YeeDevice = function (did, loc, model, power, bri,
     this.setBright = function(val) {
         this.bright = val;
 
+        console.log("model: "+this.model+"  val: "+val);
         if (this.model == "bedside") {
             bleCmd[0] = 0x43;
             bleCmd[1] = 0x42;
@@ -209,6 +210,21 @@ YeeDevice = function (did, loc, model, power, bri,
 
             this.sendBLECmd();
             return;
+        }
+
+        if (this.model == "ceiling"){
+            if(val<=10){
+                console.log('start moonlight scene');
+                var req = {id:1, method:'set_scene',
+		            params:['nightlight', 1]};
+	            this.sendCmd(req);
+                return;
+            }else{
+                console.log('start daylight scene');
+                var req = {id:1, method: 'set_ct_abx', params: [5500, 'smooth', 500]}
+	            this.sendCmd(req);
+            }
+            
         }
 
 	var req = {id:1, method:'set_bright',
