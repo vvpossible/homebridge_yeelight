@@ -27,9 +27,9 @@ YeeDevice = function (did, loc, model, power, bri,
     this.name = name;
 
     if (power == 'on')
-	this.power = 1;
+    this.power = 1;
     else
-	this.power = 0;
+    this.power = 0;
     this.bright = parseInt(bri,10);
     this.hue = parseInt(hue,10);
     this.sat = parseInt(sat,10);
@@ -47,45 +47,45 @@ YeeDevice = function (did, loc, model, power, bri,
     this.bleDevNotifyHdl = null;
     this.discovering = 0;
 
-    
+
     this.update = function(loc, power, bri, hue, sat, ct, name) {
-	var tmp = loc.split(":");
-	var host = tmp[0];
-	var port = tmp[1];
-	this.host = host;
-	this.port = parseInt(port, 10);
-	if (power == 'on')
-	    this.power = 1;
-	else
-	    this.power = 0;
-	this.bright = bri;
-	this.hue = parseInt(hue, 10);
-	this.sat = parseInt(sat, 10);
+    var tmp = loc.split(":");
+    var host = tmp[0];
+    var port = tmp[1];
+    this.host = host;
+    this.port = parseInt(port, 10);
+    if (power == 'on')
+        this.power = 1;
+    else
+        this.power = 0;
+    this.bright = bri;
+    this.hue = parseInt(hue, 10);
+    this.sat = parseInt(sat, 10);
     this.ct = transform_ct(ct, this.model, 'dev_to_hk');
         this.name = name;
     }.bind(this);
 
     this.connect = function(callback) {
-	var that = this;
-	
-	if (this.connected == true) {
-	    return;
-	}
+    var that = this;
+
+    if (this.connected == true) {
+        return;
+    }
         this.connected = true;
 
-	this.connCallback = callback;
-	
-	this.sock = new net.Socket();
-	this.sock.connect(this.port,
-			  this.host,
-			  function() {
+    this.connCallback = callback;
+
+    this.sock = new net.Socket();
+    this.sock.connect(this.port,
+              this.host,
+              function() {
                               that.retry_cnt = 0;
                               that.sock.setNoDelay(true);
-			      clearTimeout(that.retry_tmr);
-	                      that.hb_tmr = setInterval(that.handleHb, 10000);	    
+                  clearTimeout(that.retry_tmr);
+                          that.hb_tmr = setInterval(that.handleHb, 10000);
                               that.hb_lost = 0;
-			      callback(0);
-			  });
+                  callback(0);
+              });
 
         this.handleHb = function () {
 
@@ -97,7 +97,7 @@ YeeDevice = function (did, loc, model, power, bri,
                 return;
             }
 
-	    console.log("send hb to: " + that.did);	
+        console.log("send hb to: " + that.did);
 
             var req = {id:-1, method:'get_prop',
                        params:['power', 'bright', 'rgb']};
@@ -105,34 +105,34 @@ YeeDevice = function (did, loc, model, power, bri,
         };
 
 
-	this.sock.on("data", function(data) {
-	    var msg = data.toString();
+    this.sock.on("data", function(data) {
+        var msg = data.toString();
             var rsps = msg.split("\r\n");
-            
-            rsps.forEach(function (json, idex, array) { 
-	        try {
-		    JSON.parse(json,
-		       function(k,v) {
+
+            rsps.forEach(function (json, idex, array) {
+            try {
+            JSON.parse(json,
+               function(k,v) {
                            if (k == 'id' && v == -1) {
                                that.hb_lost = 0;
-                           } 
-                           
-			   if (k == 'power') {
-			       if (v == 'on')
-				   that.power = 1;
-			       else
-				   that.power = 0;
+                           }
+
+               if (k == 'power') {
+                   if (v == 'on')
+                   that.power = 1;
+                   else
+                   that.power = 0;
                                that.propChangeCb(that, 'power', that.power);
-			   } else if (k == 'bright') {
-			       that.bright = parseInt(v, 10);			     
+               } else if (k == 'bright') {
+                   that.bright = parseInt(v, 10);
                                that.propChangeCb(that, 'bright', that.bright);
-			   } else if (k == 'hue') {
-			       that.hue = parseInt(v, 10);
+               } else if (k == 'hue') {
+                   that.hue = parseInt(v, 10);
                                that.propChangeCb(that, 'hue', that.hue);
-			   } else if (k == 'sat') {
-			       that.sat = parseInt(v, 10);	
+               } else if (k == 'sat') {
+                   that.sat = parseInt(v, 10);
                                that.propChangeCb(that, 'sat', that.sat);
-			   } else if (k == 'rgb') {
+               } else if (k == 'rgb') {
                    [that.hue, that.sat] = rgbToHsv(parseInt(v, 10));
                    that.propChangeCb(that, 'hue', that.hue);
                    that.propChangeCb(that, 'sat', that.sat);
@@ -140,41 +140,41 @@ YeeDevice = function (did, loc, model, power, bri,
                    that.ct = transform_ct(v, that.model, 'dev_to_hk');
                    that.propChangeCb(that, 'ct', that.ct);
                }
-		       });
-	        } catch(e) {
-		    //console.log(e);
+               });
+            } catch(e) {
+            //console.log(e);
                 }
            });
-	});
+    });
 
-	this.sock.on("end", that.handleSockError);
-        this.sock.on("error", that.handleSockError);		 
+    this.sock.on("end", that.handleSockError);
+        this.sock.on("error", that.handleSockError);
     }.bind(this);
 
     this.handleSockError = function () {
         console.log("closed the socket and retry");
-	this.connected = false;
-	this.sock = null;
-	this.connCallback(-1);
-	this.retry_tmr = setTimeout(this.handleDiscon, 3000);	    
+    this.connected = false;
+    this.sock = null;
+    this.connCallback(-1);
+    this.retry_tmr = setTimeout(this.handleDiscon, 3000);
         clearTimeout(this.hb_tmr);
-    }.bind(this);	
+    }.bind(this);
 
     this.handleDiscon = function () {
-	console.log("retry connect (" + this.retry_cnt + ") ...: " + this.did);	
+    console.log("retry connect (" + this.retry_cnt + ") ...: " + this.did);
         this.retry_cnt = this.retry_cnt + 1;
-        if (this.retry_cnt > 9) 
+        if (this.retry_cnt > 9)
             return;
-	this.connect(this.connCallback);
+    this.connect(this.connCallback);
     }.bind(this);
-   
+
     this.sendBLECmd = function () {
         if (!this.bleDevRWHdl)
             return;
 
-        this.bleDevRWHdl.write(new Buffer(bleCmd), false, function(error) { 
-        }); 
-    }.bind(this); 
+        this.bleDevRWHdl.write(new Buffer(bleCmd), false, function(error) {
+        });
+    }.bind(this);
 
     this.setPower = function(is_on) {
         this.power = is_on;
@@ -182,21 +182,21 @@ YeeDevice = function (did, loc, model, power, bri,
         if (this.model == "bedside") {
             bleCmd[0] = 0x43;
             bleCmd[1] = 0x40;
-            if (is_on) 
-                bleCmd[2] = 0x01;   
-            else 
-                bleCmd[2] = 0x02;  
+            if (is_on)
+                bleCmd[2] = 0x01;
+            else
+                bleCmd[2] = 0x02;
 
             this.sendBLECmd();
             return;
-        } 
+        }
 
         var on_off = "on";
         if (!is_on)
             on_off = "off";
-	var req = {id:1, method:'set_power', params:[on_off, "smooth", 500]};
+    var req = {id:1, method:'set_power', params:[on_off, "smooth", 500]};
 
-	this.sendCmd(req);
+    this.sendCmd(req);
     }.bind(this);
 
     this.setBright = function(val) {
@@ -211,9 +211,9 @@ YeeDevice = function (did, loc, model, power, bri,
             return;
         }
 
-	var req = {id:1, method:'set_bright',
-		   params:[val, 'smooth', 500]};
-	this.sendCmd(req);
+    var req = {id:1, method:'set_bright',
+           params:[val, 'smooth', 500]};
+    this.sendCmd(req);
     }.bind(this);
 
     this.setColor = function (hue, sat) {
@@ -222,7 +222,7 @@ YeeDevice = function (did, loc, model, power, bri,
 
         if (this.model == "bedside") {
             rgb = hsv2rgb(parseFloat(hue/360), parseFloat(sat/100), 1);
-           
+
             bleCmd[0] = 0x43;
             bleCmd[1] = 0x41;
             bleCmd[2] = parseInt(rgb.r.toString(16), 16);
@@ -239,9 +239,9 @@ YeeDevice = function (did, loc, model, power, bri,
             this.setPower(1);
         }
 
-	var req = {id:1, method:'set_hsv',
-		   params:[hue, sat, 'smooth', 500]};
-	this.sendCmd(req);
+    var req = {id:1, method:'set_hsv',
+           params:[hue, sat, 'smooth', 500]};
+    this.sendCmd(req);
     }.bind(this);
 
     this.setCT = function (ct) {
@@ -259,27 +259,27 @@ YeeDevice = function (did, loc, model, power, bri,
     }.bind(this);
 
     this.setBlink = function () {
-	var req = {id:1, method:'start_cf',
-		   params:[6,0,'500,2,4000,1,500,2,4000,50']};
+    var req = {id:1, method:'start_cf',
+           params:[6,0,'500,2,4000,1,500,2,4000,50']};
     }.bind(this);
-   
-    this.setName = function (name) {
-   	this.name = name;
-	var req = {id:1, method:'set_name',
-		   params:[new Buffer(name).toString('base64')]};
-	this.sendCmd(req);
-    }.bind(this);
- 
-    this.sendCmd = function(cmd) {
-	if (this.sock == null || this.connected == false) {
-	    console.log("connection broken" + this.connected + "\n" + this.sock);
-	    return;
-	}
-	var msg = JSON.stringify(cmd);
 
-	console.log(msg);
-	
-	this.sock.write(msg + "\r\n");
+    this.setName = function (name) {
+    this.name = name;
+    var req = {id:1, method:'set_name',
+           params:[new Buffer(name).toString('base64')]};
+    this.sendCmd(req);
+    }.bind(this);
+
+    this.sendCmd = function(cmd) {
+    if (this.sock == null || this.connected == false) {
+        console.log("connection broken" + this.connected + "\n" + this.sock);
+        return;
+    }
+    var msg = JSON.stringify(cmd);
+
+    console.log(msg);
+
+    this.sock.write(msg + "\r\n");
     }.bind(this);
 };
 
@@ -291,133 +291,133 @@ exports.YeeAgent = function(ip, handler){
     this.handler = handler;
     this.bleScanTmr = null;
     this.bleStopTmr = null;
-    
+
     this.getDevice = function(did) {
-	if (did in this.devices)
-	    return this.devices[did];
-	else
-	    return null;
+    if (did in this.devices)
+        return this.devices[did];
+    else
+        return null;
     }.bind(this);
 
     this.delDevice = function(did) {
-	delete this.devices[did];
+    delete this.devices[did];
     }.bind(this);
-    
+
     this.discSock.bind(PORT, function() {
-	console.log("add to multicast group");
-	this.discSock.setBroadcast(true);
-	this.discSock.setMulticastTTL(128);
-	this.discSock.addMembership(MCAST_ADDR);
+    console.log("add to multicast group");
+    this.discSock.setBroadcast(true);
+    this.discSock.setMulticastTTL(128);
+    this.discSock.addMembership(MCAST_ADDR);
     }.bind(this));
-    
+
     this.discSock.on('listening', function() {
-	var address = this.discSock.address();
-	console.log('listen on ' + address.address);
+    var address = this.discSock.address();
+    console.log('listen on ' + address.address);
     }.bind(this));
 
     this.handleDiscoverMsg = function(message, from) {
-	var that = this;
-	did = "";
-	loc = "";
-	power = "";
-	bright = "";
-	model = "";
-	hue = "";
-	sat = "";
+    var that = this;
+    did = "";
+    loc = "";
+    power = "";
+    bright = "";
+    model = "";
+    hue = "";
+    sat = "";
     ct = "";
         name = "";
 
-	headers = message.toString().split("\r\n");
-	for (i = 0; i < headers.length; i++) {
-	    if (headers[i].indexOf("id:") >= 0)
-		did = headers[i].slice(4);
-	    if (headers[i].indexOf("Location:") >= 0)
-		loc = headers[i].slice(10);
-	    if (headers[i].indexOf("power:") >= 0)
-		power = headers[i].slice(7);
-	    if (headers[i].indexOf("bright:") >= 0)
-		bright = headers[i].slice(8);
-	    if (headers[i].indexOf("model:") >= 0)
-		model = headers[i].slice(7);
-	    if (headers[i].indexOf("hue:") >= 0)
-		hue = headers[i].slice(5);
-	    if (headers[i].indexOf("sat:") >= 0)
-		sat = headers[i].slice(5);
+    headers = message.toString().split("\r\n");
+    for (i = 0; i < headers.length; i++) {
+        if (headers[i].indexOf("id:") >= 0)
+        did = headers[i].slice(4);
+        if (headers[i].indexOf("Location:") >= 0)
+        loc = headers[i].slice(10);
+        if (headers[i].indexOf("power:") >= 0)
+        power = headers[i].slice(7);
+        if (headers[i].indexOf("bright:") >= 0)
+        bright = headers[i].slice(8);
+        if (headers[i].indexOf("model:") >= 0)
+        model = headers[i].slice(7);
+        if (headers[i].indexOf("hue:") >= 0)
+        hue = headers[i].slice(5);
+        if (headers[i].indexOf("sat:") >= 0)
+        sat = headers[i].slice(5);
         if (headers[i].indexOf("ct:") >= 0)
             ct =  headers[i].slice(4);
-	    if (headers[i].indexOf("name:") >= 0)
-		name = new Buffer(headers[i].slice(6), 'base64').toString('utf8');
-	}
-	if (did == "" || loc == "" || model == ""
-	    || power == "" || bright == "") {
-	    console.log("no did or loc found!");
-	    return;	    
-	}
-	loc = loc.split("//")[1];
-	if (loc == "") {
-	    console.log("location format error!");
-	    return;
-	}
-	
-	if (did in this.devices) {
-	    console.log("already in device list!");
-	    this.devices[did].update(loc,
-				     power,
-				     bright,
-				     hue,
-				     sat, ct, name);
-	} else {
-	    this.devices[did] = new YeeDevice(did,
-					      loc,
-					      model,
-					      power,
-					      bright,
-					      hue,
-					      sat, ct, name,
-                                              this.devPropChange 
-					     );
-	    this.handler.onDevFound(this.devices[did]);
-	}
+        if (headers[i].indexOf("name:") >= 0)
+        name = new Buffer(headers[i].slice(6), 'base64').toString('utf8');
+    }
+    if (did == "" || loc == "" || model == ""
+        || power == "" || bright == "") {
+        console.log("no did or loc found!");
+        return;
+    }
+    loc = loc.split("//")[1];
+    if (loc == "") {
+        console.log("location format error!");
+        return;
+    }
 
-	if (this.devices[did].connected == false &&
-	    this.devices[did].sock == null) {
-	    
-	    var dev = this.devices[did];
-	    
-	    dev.connect(function(ret){
-		if (ret < 0) {
-		    console.log("failed to connect!");
-		    that.handler.onDevDisconnected(dev);		    
-		} else {
-		    console.log("connect ok!");
-		    that.handler.onDevConnected(dev);		    
-		}
-	    });
-	}
+    if (did in this.devices) {
+        console.log("already in device list!");
+        this.devices[did].update(loc,
+                     power,
+                     bright,
+                     hue,
+                     sat, ct, name);
+    } else {
+        this.devices[did] = new YeeDevice(did,
+                          loc,
+                          model,
+                          power,
+                          bright,
+                          hue,
+                          sat, ct, name,
+                                              this.devPropChange
+                         );
+        this.handler.onDevFound(this.devices[did]);
+    }
+
+    if (this.devices[did].connected == false &&
+        this.devices[did].sock == null) {
+
+        var dev = this.devices[did];
+
+        dev.connect(function(ret){
+        if (ret < 0) {
+            console.log("failed to connect!");
+            that.handler.onDevDisconnected(dev);
+        } else {
+            console.log("connect ok!");
+            that.handler.onDevConnected(dev);
+        }
+        });
+    }
     }.bind(this);
 
     this.devPropChange = function (dev, prop, val) {
         console.log(dev.did + " property change: " + prop + " value: " + val);
         this.handler.onDevPropChange(dev, prop, val);
     }.bind(this);
-    
+
     this.scanSock.on('message', this.handleDiscoverMsg);
     this.discSock.on('message', this.handleDiscoverMsg);
-    
+
     this.startDisc = function() {
         var that = this;
 
-	this.scanSock.send(discMsg,
-			   0,
-			   discMsg.length,
-			   PORT,
-			   MCAST_ADDR);
+    this.scanSock.send(discMsg,
+               0,
+               discMsg.length,
+               PORT,
+               MCAST_ADDR);
 
-        if (!noble) {
+        if (!noble || !this.handler.noble) {
             console.log("no ble cap, skip ble device discovery");
             return;
         }
-     
+
         noble.on('stateChange', function(state) {
             if (state == 'poweredOn') {
                 that.bleScanTmr = setTimeout(that.scanBLE, 16000);
@@ -430,10 +430,10 @@ exports.YeeAgent = function(ip, handler){
 
         noble.on('discover', function(peripheral) {
             var localName = peripheral.advertisement.localName
-             
+
             if (localName && localName.indexOf("XMCTD_") >= 0) {
                 console.log("found Yeelight Bedside lamp: " + peripheral.address);
-                that.handleBLEDevice(peripheral);                
+                that.handleBLEDevice(peripheral);
             }
         });
     }.bind(this);
@@ -451,7 +451,7 @@ exports.YeeAgent = function(ip, handler){
         console.log("stop this round of scan");
     }.bind(this);
 
-    this.handleBLEDevice = function(pdev) { 
+    this.handleBLEDevice = function(pdev) {
         var did = pdev.address;
         var that = this;
 
@@ -476,13 +476,13 @@ exports.YeeAgent = function(ip, handler){
                 console.log("still discovering");
                 return;
             }
-     
+
             pdev.disconnect();
             that.devices[did].discovering = 1;
-            setTimeout(function() { 
+            setTimeout(function() {
                 console.log("stop discovering");
-                that.devices[did].discovering = 0; 
-                }, 
+                that.devices[did].discovering = 0;
+                },
             10000);
 
             pdev.connect(function(ret) {
@@ -491,17 +491,17 @@ exports.YeeAgent = function(ip, handler){
                     that.handler.onDevDisconnected(that.devices[did]);
                 } else {
                     console.log("connect ok: " + did);
-                  
+
                     pdev.discoverServices(['8e2f0cbd1a664b53ace6b494e25f87bd'], function(error, services) {
                         console.log('discovered services');
-                        that.devices[did].discovering = 0; 
+                        that.devices[did].discovering = 0;
                         var deviceInformationService = services[0];
-                     
+
                         deviceInformationService.discoverCharacteristics(
-                             ['aa7d3f342d4f41e0807f52fbf8cf7443', '8f65073d9f574aaaafea397d19d5bbeb'], 
+                             ['aa7d3f342d4f41e0807f52fbf8cf7443', '8f65073d9f574aaaafea397d19d5bbeb'],
                              function(error, characteristics) {
-                                 that.devices[did].bleDevRWHdl = characteristics[0]; 
-                                 that.devices[did].bleDevNotifyHdl = characteristics[1]; 
+                                 that.devices[did].bleDevRWHdl = characteristics[0];
+                                 that.devices[did].bleDevNotifyHdl = characteristics[1];
                                  that.devices[did].bleDevNotifyHdl.on('data', function(data, isNotify) {
                                      that.handleBLENotify(did, data, isNotify);
                                  });
@@ -543,24 +543,24 @@ exports.YeeAgent = function(ip, handler){
     this.handleBLENotify = function(did, data, isNotify) {
         console.log("receive notify for did: " + did);
 
-        dev = this.devices[did]; 
-   
-        if (data[0] == 0x43 && data[1] == 0x45) { 
+        dev = this.devices[did];
+
+        if (data[0] == 0x43 && data[1] == 0x45) {
             if (data[2] == 1)
-                dev.propChangeCb(dev, 'power', 1); 
-            else 
+                dev.propChangeCb(dev, 'power', 1);
+            else
                 dev.propChangeCb(dev, 'power', 0);
 
             dev.propChangeCb(dev, 'bright', data[8]);
 
             console.log("power: " + data[2] + " bright: " + data[8]);
-        }   
+        }
     }.bind(this);
 };
 
 /* accepts parameters
  * h  Object = {h:x, s:y, v:z}
- * OR 
+ * OR
  * h, s, v
 */
 function hsv2rgb(h, s, v) {
