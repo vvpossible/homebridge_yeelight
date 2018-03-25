@@ -286,6 +286,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb) {
 
 exports.YeeAgent = function(ip, handler) {
     this.ip         = ip;
+    this.log        = handler.log;
     this.discSock   = dgram.createSocket('udp4');
     this.scanSock   = dgram.createSocket('udp4');
     this.devices    = {};
@@ -305,7 +306,7 @@ exports.YeeAgent = function(ip, handler) {
     }.bind(this);
 
     this.discSock.bind(PORT, function() {
-        console.log("add to multicast group");
+        this.log("add to multicast group");
         this.discSock.setBroadcast(true);
         this.discSock.setMulticastTTL(128);
         this.discSock.addMembership(MCAST_ADDR);
@@ -313,7 +314,7 @@ exports.YeeAgent = function(ip, handler) {
 
     this.discSock.on('listening', function() {
         var address = this.discSock.address();
-        console.log('listen on ' + address.address);
+        this.log('listen on ' + address.address);
     }.bind(this));
 
     this.handleDiscoverMsg = function(message, from) {
@@ -352,18 +353,18 @@ exports.YeeAgent = function(ip, handler) {
         }
 
         if (did == "" || loc == "" || model == "" || power == "" || bright == "") {
-            console.log("no did or loc found!");
+            this.log("no did or loc found!");
             return;
         }
 
         loc = loc.split("//")[1];
         if (loc == "") {
-            console.log("location format error!");
+            this.log("location format error!");
             return;
         }
 
         if (did in this.devices) {
-            console.log("already in device list!");
+            this.log("already in device list!");
             this.devices[did].update(loc, power, bright, hue, sat, ct, name);
         } else {
             this.devices[did] = new YeeDevice(did, loc, model, power, bright, hue, sat, ct, name, this.devPropChange);
@@ -377,10 +378,10 @@ exports.YeeAgent = function(ip, handler) {
 
             dev.connect(function(ret) {
                 if (ret < 0) {
-                    console.log("failed to connect!");
+                    that.log("failed to connect!");
                     that.handler.onDevDisconnected(dev);
                 } else {
-                    console.log("connect ok!");
+                    that.log("connect ok!");
                     that.handler.onDevConnected(dev);
                 }
             });
@@ -388,7 +389,7 @@ exports.YeeAgent = function(ip, handler) {
     }.bind(this);
 
     this.devPropChange = function (dev, prop, val) {
-        console.log(dev.did + " property change: " + prop + " value: " + val);
+        this.log(dev.did + " property change: " + prop + " value: " + val);
         this.handler.onDevPropChange(dev, prop, val);
     }.bind(this);
 
@@ -401,7 +402,7 @@ exports.YeeAgent = function(ip, handler) {
         this.scanSock.send(discMsg, 0, discMsg.length, PORT, MCAST_ADDR);
 
         if (!noble || !this.handler.noble) {
-            console.log("no ble cap, skip ble device discovery");
+            this.log("no ble cap, skip ble device discovery");
             return;
         }
 
@@ -419,7 +420,7 @@ exports.YeeAgent = function(ip, handler) {
             var localName = peripheral.advertisement.localName
 
             if (localName && localName.indexOf("XMCTD_") >= 0) {
-                console.log("found Yeelight Bedside lamp: " + peripheral.address);
+                that.log("found Yeelight Bedside lamp: " + peripheral.address);
                 that.handleBLEDevice(peripheral);
             }
         });
@@ -430,12 +431,12 @@ exports.YeeAgent = function(ip, handler) {
         noble.startScanning();
         this.bleScanTmr = setTimeout(this.scanBLE, 16000);
         this.bleStopTmr = setTimeout(this.stopScanBLE, 8000);
-        console.log("start new round of scan");
+        this.log("start new round of scan");
     }.bind(this);
 
     this.stopScanBLE = function() {
         noble.stopScanning();
-        console.log("stop this round of scan");
+        this.log("stop this round of scan");
     }.bind(this);
 
     this.handleBLEDevice = function(pdev) {
@@ -444,7 +445,7 @@ exports.YeeAgent = function(ip, handler) {
 
 
         if (did in that.devices) {
-            console.log("already in device list: " + did);
+            that.log("already in device list: " + did);
         } else {
             that.devices[did] = new YeeDevice(did, "0.0.0.0:0", "bedside", "on", "100", "360", "100", "unknown", that.devPropChange);
             this.handler.onDevFound(that.devices[did]);
@@ -452,26 +453,26 @@ exports.YeeAgent = function(ip, handler) {
 
         if (that.devices[did].connected == false) {
             if (that.devices[did].discovering) {
-                console.log("still discovering");
+                that.log("still discovering");
                 return;
             }
 
             pdev.disconnect();
             that.devices[did].discovering = 1;
             setTimeout(function() {
-                console.log("stop discovering");
+                that.log("stop discovering");
                 that.devices[did].discovering = 0;
             }, 10000);
 
             pdev.connect(function(ret) {
                 if (ret < 0) {
-                    console.log("failed to connect!");
+                    that.log("failed to connect!");
                     that.handler.onDevDisconnected(that.devices[did]);
                 } else {
-                    console.log("connect ok: " + did);
+                    that.log("connect ok: " + did);
 
                     pdev.discoverServices(['8e2f0cbd1a664b53ace6b494e25f87bd'], function(error, services) {
-                        console.log('discovered services');
+                        that.log('discovered services');
                         that.devices[did].discovering = 0;
                         var deviceInformationService = services[0];
 
@@ -485,7 +486,7 @@ exports.YeeAgent = function(ip, handler) {
                                  });
 
                                  that.devices[did].bleDevNotifyHdl.subscribe(function(error) {
-                                     console.log('ble notification on');
+                                     that.log('ble notification on');
                                      // 43 67 for auth
                                      bleCmd[0] = 0x43;
                                      bleCmd[1] = 0x67;
@@ -504,11 +505,11 @@ exports.YeeAgent = function(ip, handler) {
                 }
             });
         } else {
-            console.log("lose connection with BLE: " + pdev.address);
+            that.log("lose connection with BLE: " + pdev.address);
 
             if (that.devices[did].bleDevNotifyHdl) {
                 that.devices[did].bleDevNotifyHdl.unsubscribe(function(error) {
-                    console.log('ble notification off');
+                    that.log('ble notification off');
                 });
             }
             that.devices[did].bleDevRWHdl     = null;
@@ -519,7 +520,7 @@ exports.YeeAgent = function(ip, handler) {
     }.bind(this);
 
     this.handleBLENotify = function(did, data, isNotify) {
-        console.log("receive notify for did: " + did);
+        this.log("receive notify for did: " + did);
 
         dev = this.devices[did];
 
@@ -531,7 +532,7 @@ exports.YeeAgent = function(ip, handler) {
 
             dev.propChangeCb(dev, 'bright', data[8]);
 
-            console.log("power: " + data[2] + " bright: " + data[8]);
+            this.log("power: " + data[2] + " bright: " + data[8]);
         }
     }.bind(this);
 };
