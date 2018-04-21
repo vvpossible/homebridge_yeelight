@@ -556,7 +556,8 @@ exports.YeeAgent = function(ip, handler){
             switch (data[3]) {
                 case 2: // "sunshine" aka white mode
                     var temp = (data[9] << 8) + (data[10] & 255);
-                    dev.propChangeCb(dev, 'ct', temp);
+                    dev.propChangeCb(dev, 'ct', transform_ct(temp, dev.model, "dev_to_hk"));
+                    dev.propChangeCb(dev, 'sat', 0);
                     break;
                 case 1: // "color" mode
                     var red = data[4];
@@ -644,7 +645,7 @@ function line_map(x1, y1, x2, y2, x) {
 
 function transform_ct(ct, model, type) {
 
-    var min_ct = 2700;
+    var min_ct = (model == "bedside") ? 1700 : 2700;
     var max_ct = 6500;
     var min_hk_ct = 500;
     var max_hk_ct = 140;
