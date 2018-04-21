@@ -559,9 +559,9 @@ exports.YeeAgent = function(ip, handler){
                     dev.propChangeCb(dev, 'ct', temp);
                     break;
                 case 1: // "color" mode
-                    var red = data[4] & 255;
-                    var green = data[5] & 255;
-                    var blue = data[6] & 255;
+                    var red = data[4];
+                    var green = data[5];
+                    var blue = data[6];
                     var [hue, sat] = rgbToHsv((red << 16) + (green << 8) + blue);
                     dev.propChangeCb(dev, 'hue', hue);
                     dev.propChangeCb(dev, 'sat', sat);
