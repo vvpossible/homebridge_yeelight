@@ -553,6 +553,24 @@ exports.YeeAgent = function(ip, handler){
 
             dev.propChangeCb(dev, 'bright', data[8]);
 
+            switch (data[3]) {
+                case 2: // "sunshine" aka white mode
+                    var temp = (data[9] << 8) + (data[10] & 255);
+                    dev.propChangeCb(dev, 'ct', temp);
+                    break;
+                case 1: // "color" mode
+                    var red = data[4] & 255;
+                    var green = data[5] & 255;
+                    var blue = data[6] & 255;
+                    var [hue, sat] = rgbToHsv((red << 16) + (green << 8) + blue);
+                    dev.propChangeCb(dev, 'hue', hue);
+                    dev.propChangeCb(dev, 'sat', sat);
+                    break;
+                case 3:
+                    console.log("lamp entered flow mode");
+                    break;
+            }
+
             console.log("power: " + data[2] + " bright: " + data[8]);
         }   
     }.bind(this);
