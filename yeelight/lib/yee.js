@@ -465,7 +465,7 @@ exports.YeeAgent = function(ip, handler){
                                               "on",
                                               "100",
                                               "360",
-                                              "100", "unknown",
+                                              "100", "2700", "unknown",
                                               that.devPropChange
                                              );
             this.handler.onDevFound(that.devices[did]);
