@@ -253,6 +253,16 @@ YeeDevice = function (did, loc, model, power, bri,
 
         var trans_ct = transform_ct(ct, this.model, 'hk_to_dev');
 
+        if (this.model == "bedside") {
+            bleCmd[0] = 0x43;
+            bleCmd[1] = 0x43;
+            bleCmd[2] = trans_ct >> 8;
+            bleCmd[3] = trans_ct & 255;
+            bleCmd[4] = 0x00; // don't set a brightness
+            this.sendBLECmd();
+            return;
+        }
+
         var req = {id:1, method:'set_ct_abx',
             params:[trans_ct, 'smooth', 500]};
         this.sendCmd(req);
