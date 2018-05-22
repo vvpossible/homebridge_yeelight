@@ -247,11 +247,20 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb) {
 
         var trans_ct = transform_ct(ct, this.model, 'hk_to_dev');
 
-        this.sendCmd({
-            id: 1,
-            method: 'set_ct_abx',
-            params: [trans_ct, 'smooth', 500]
-        });
+        if (this.model == "bedside") {
+            bleCmd[0] = 0x43;
+            bleCmd[1] = 0x43;
+            bleCmd[2] = trans_ct >> 8;
+            bleCmd[3] = trans_ct & 255;
+            bleCmd[4] = 0x00; // don't set a brightness
+            this.sendBLECmd();
+            return;
+        }
+
+        var req = {id:1, method:'set_ct_abx',
+            params:[trans_ct, 'smooth', 500]};
+        this.sendCmd(req);
+
     }.bind(this);
 
     this.setBlink = function () {
@@ -447,7 +456,19 @@ exports.YeeAgent = function(ip, handler) {
         if (did in that.devices) {
             that.log("already in device list: " + did);
         } else {
-            that.devices[did] = new YeeDevice(did, "0.0.0.0:0", "bedside", "on", "100", "360", "100", "unknown", that.devPropChange);
+
+            that.devices[did] = new YeeDevice(did,
+                                              "0.0.0.0:0",
+                                              "bedside",
+                                              "on",
+                                              "100",
+                                              "360",
+                                              "100",
+                                              "0",
+                                              "unknown",
+                                              that.devPropChange
+                                             );
+          
             this.handler.onDevFound(that.devices[did]);
         }
 
@@ -532,8 +553,27 @@ exports.YeeAgent = function(ip, handler) {
 
             dev.propChangeCb(dev, 'bright', data[8]);
 
-            this.log("power: " + data[2] + " bright: " + data[8]);
-        }
+            switch (data[3]) {
+                case 2: // "sunshine" aka white mode
+                    var temp = (data[9] << 8) + (data[10] & 255);
+                    dev.propChangeCb(dev, 'ct', transform_ct(temp, dev.model, "dev_to_hk"));
+                    dev.propChangeCb(dev, 'sat', 0);
+                    break;
+                case 1: // "color" mode
+                    var red = data[4];
+                    var green = data[5];
+                    var blue = data[6];
+                    var [hue, sat] = rgbToHsv((red << 16) + (green << 8) + blue);
+                    dev.propChangeCb(dev, 'hue', hue);
+                    dev.propChangeCb(dev, 'sat', sat);
+                    break;
+                case 3:
+                    console.log("lamp entered flow mode");
+                    break;
+            }
+
+            console.log("power: " + data[2] + " bright: " + data[8]);
+        }   
     }.bind(this);
 };
 
@@ -605,7 +645,7 @@ function line_map(x1, y1, x2, y2, x) {
 
 function transform_ct(ct, model, type) {
 
-    var min_ct = 2700;
+    var min_ct = (model == "bedside") ? 1700 : 2700;
     var max_ct = 6500;
     var min_hk_ct = 500;
     var max_hk_ct = 140;
