@@ -71,6 +71,8 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb) {
 
         this.sock = new net.Socket();
         this.sock.connect(this.port, this.host, function() {
+            if (!that.sock)
+                return;
             that.retry_cnt = 0;
             that.sock.setNoDelay(true);
             clearTimeout(that.retry_tmr);
@@ -122,7 +124,9 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb) {
                            that.sat = parseInt(v, 10);
                            that.propChangeCb(that, 'sat', that.sat);
                        } else if (k == 'rgb') {
-                           [that.hue, that.sat] = rgbToHsv(parseInt(v, 10));
+                           var p = rgbToHsv(parseInt(v, 10));
+                           that.hue = p[0];
+                           that.sat = p[1];
                            that.propChangeCb(that, 'hue', that.hue);
                            that.propChangeCb(that, 'sat', that.sat);
                        } else if (k == 'ct') {
@@ -563,9 +567,9 @@ exports.YeeAgent = function(ip, handler) {
                     var red = data[4];
                     var green = data[5];
                     var blue = data[6];
-                    var [hue, sat] = rgbToHsv((red << 16) + (green << 8) + blue);
-                    dev.propChangeCb(dev, 'hue', hue);
-                    dev.propChangeCb(dev, 'sat', sat);
+                    var p = rgbToHsv((red << 16) + (green << 8) + blue);
+                    dev.propChangeCb(dev, 'hue', p[0]);
+                    dev.propChangeCb(dev, 'sat', p[1]);
                     break;
                 case 3:
                     console.log("lamp entered flow mode");
