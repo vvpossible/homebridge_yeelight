@@ -17,9 +17,8 @@ function YeePlatform(log, config, api) {
 
     this.log            = log;
     this.config         = config;
-    this.noble          = config.noble === undefined ? true : config.noble;
     this.yeeAccessories = [];
-
+    
     var platform = this;
 
     if (api) {

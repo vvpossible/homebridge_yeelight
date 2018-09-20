@@ -414,7 +414,7 @@ exports.YeeAgent = function(ip, handler) {
 
         this.scanSock.send(discMsg, 0, discMsg.length, PORT, MCAST_ADDR);
 
-        if (!noble || !this.handler.noble) {
+        if (!noble) {
             this.log("no ble cap, skip ble device discovery");
             return;
         }
