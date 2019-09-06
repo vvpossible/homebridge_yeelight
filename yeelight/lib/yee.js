@@ -205,6 +205,22 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb) {
             return;
         }
 
+        if (this.model == "ceiling") {
+            if (val<=30) {
+                var req = {
+                    id: 1,
+                    method:'set_scene',
+                    params:['nightlight', 1]
+                };
+	            this.sendCmd(req);
+                return;
+            } else {
+                var req = {id:1, method: 'set_ct_abx', params: [5500, 'smooth', 500]}
+                this.sendCmd(req);
+            }
+
+        }
+
         this.sendCmd({
             id: 1,
             method: 'set_bright',

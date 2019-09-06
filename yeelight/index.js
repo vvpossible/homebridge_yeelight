@@ -120,6 +120,7 @@ YeePlatform.prototype = {
                     .on('get', function(callback){callback(null, dev.ct);})
                     .updateValue(dev.ct);
             }
+            console.log('!!!!!!!!!!!!!!!', dev.model == 'ceiling', dev.color_mode)
         }
 
         newAccessory.reachable = true;
