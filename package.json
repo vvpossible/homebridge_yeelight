@@ -1,5 +1,5 @@
 {
-  "name": "homebridge-yeelight2",
+  "name": "homebridge-yeelight-mh",
   "version": "0.0.21",
   "description": "Yeelight plugin for homebridge: https://github.com/nfarina/homebridge",
   "license": "ISC",

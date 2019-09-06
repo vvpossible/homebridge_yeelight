@@ -1,4 +1,4 @@
-var yeeLight = require('./lib/yee.js');
+var yeeLight = require('./yeelight/lib/yee.js');
 var Service, Characteristic, Accessory, UUIDGen;
 
 
@@ -96,7 +96,7 @@ YeePlatform.prototype = {
                 .on('set', function(value, callback) { that.exeCmd(dev.did, "brightness", value, callback);})
                 .value = dev.bright;
 
-            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside") {
+            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == 'ceiling4') {
                 lightbulbService
                     .getCharacteristic(Characteristic.Hue)
                     .on('set', function(value, callback) { that.exeCmd(dev.did, "hue", value, callback);})
@@ -120,7 +120,7 @@ YeePlatform.prototype = {
                     .on('get', function(callback){callback(null, dev.ct);})
                     .updateValue(dev.ct);
             }
-            console.log('!!!!!!!!!!!!!!!', dev.model == 'ceiling', dev.color_mode)
+            console.log('test!!!!!!!!!!!!!!!', dev.model, dev.color_mode)
         }
 
         newAccessory.reachable = true;
@@ -167,7 +167,7 @@ YeePlatform.prototype = {
         var character;
         var lightbulbService = accessory.getService(Service.Lightbulb);
 
-        this.log("update accessory prop: " + prop + "value: " + val);
+        this.log("update accessory prop: " + prop + "value: " + val, dev.model);
 
         if (prop == "power") {
             character = lightbulbService.getCharacteristic(Characteristic.On)

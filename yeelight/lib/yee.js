@@ -205,7 +205,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb) {
             return;
         }
 
-        if (this.model == "ceiling") {
+        if (this.model == "ceiling3" || this.model == "ceiling4") {
             if (val<=30) {
                 var req = {
                     id: 1,
