@@ -8,8 +8,8 @@
     
     "platforms": [
         {
-            "platform" : "yeelight2",
-            "name" : "yeelight2"
+            "platform" : "yeelight",
+            "name" : "yeelight"
         }
     ]
 }

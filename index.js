@@ -9,7 +9,7 @@ module.exports = function(homebridge) {
     Characteristic = homebridge.hap.Characteristic;
     UUIDGen = homebridge.hap.uuid;
 
-    homebridge.registerPlatform("homebridge-yeelight2", "yeelight", YeePlatform, true);
+    homebridge.registerPlatform("homebridge-yeelight", "yeelight", YeePlatform, true);
 }
 
 function YeePlatform(log, config, api) {
@@ -128,7 +128,7 @@ YeePlatform.prototype = {
         if (!found) {
             newAccessory.addService(lightbulbService, name);
             this.yeeAccessories.push(newAccessory);
-            this.api.registerPlatformAccessories("homebridge-yeelight2", "yeelight", [newAccessory]);
+            this.api.registerPlatformAccessories("homebridge-yeelight", "yeelight", [newAccessory]);
         }
     },
 
