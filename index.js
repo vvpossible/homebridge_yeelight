@@ -79,7 +79,7 @@ YeePlatform.prototype = {
                 .on('set', function(value, callback) { that.exeCmd(dev.did, "brightness", value, callback);})
                 .value = dev.bright;
 
-            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside") {
+            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == 'ceiling4') {
                 lightbulbService
                     .addCharacteristic(Characteristic.Hue)
                     .on('set', function(value, callback) { that.exeCmd(dev.did, "hue", value, callback);})
@@ -108,6 +108,13 @@ YeePlatform.prototype = {
                     .on('set', function(value, callback) { that.exeCmd(dev.did, "saturation", value, callback);})
                     .value = dev.sat;
             }
+        }
+
+        if (dev.model == 'ceiling3' || dev.model == 'ceiling4') {
+            lightbulbService
+                    .getCharacteristic(Characteristic.NightVision)
+                    .on('set', function(value, callback) { that.exeCmd(dev.did, "moon", value, callback);})
+                    .value = 0;
         }
 
 
@@ -223,6 +230,8 @@ YeePlatform.prototype = {
             case 'brightness':
                 dev.setBright(value);
                 break;
+            case 'moon':
+                dev.setNightMode(value);
             case 'saturation':
                 dev.setColor(dev.hue, value);
                 break;

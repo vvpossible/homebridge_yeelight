@@ -15,7 +15,7 @@ var PORT = 1982;
 var MCAST_ADDR = '239.255.255.250';
 var discMsg = new Buffer('M-SEARCH * HTTP/1.1\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb\r\n');
 
-YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb) {
+YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb, ...rest) {
     var tmp              = loc.split(":");
     var host             = tmp[0];
     var port             = tmp[1];
@@ -205,26 +205,37 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb) {
             return;
         }
 
-        if (this.model == "ceiling3" || this.model == "ceiling4") {
-            if (val<=30) {
-                var req = {
-                    id: 1,
-                    method:'set_scene',
-                    params:['nightlight', 1]
-                };
-	            this.sendCmd(req);
-                return;
-            } else {
-                var req = {id:1, method: 'set_ct_abx', params: [5500, 'smooth', 500]}
-                this.sendCmd(req);
-            }
-
-        }
+        // if (this.model == "ceiling3" || this.model == "ceiling4") {
+        //     if (val <= 50) {
+        //         var req = {
+        //             id: 1,
+        //             method:'set_scene',
+        //             params:['nightlight', 1]
+        //         };
+        //         this.sendCmd(req);
+        //         val = val * 2
+        //     } else {
+        //         var req = {id:1, method: 'set_ct_abx', params: [5500, 'smooth', 500]}
+        //         this.sendCmd(req);
+        //     }
+        // }
 
         this.sendCmd({
             id: 1,
             method: 'set_bright',
             params: [val, 'smooth', 500]
+        });
+    }.bind(this);
+
+    this.setNightMode = function(val) {
+        var mode = 0
+        if (val) {
+            mode = 5
+        }
+        this.sendCmd({
+            id: 1,
+            method: 'set_power',
+            params: [on_off, "smooth", 500, mode]
         });
     }.bind(this);
 
@@ -249,6 +260,15 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb) {
 
         if (!this.power) {
             this.setPower(1);
+        }
+
+        if (this.model == "ceiling4") {
+            this.sendCmd({
+                id: 1,
+                method: 'bg_set_hsv',
+                params: [hue, sat, 'smooth', 500]
+            });
+            return
         }
 
         this.sendCmd({
