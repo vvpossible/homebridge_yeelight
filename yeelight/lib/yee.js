@@ -235,7 +235,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb, ...re
         this.sendCmd({
             id: 1,
             method: 'set_power',
-            params: [on_off, "smooth", 500, mode]
+            params: ['on', "smooth", 500, mode]
         });
     }.bind(this);
 
