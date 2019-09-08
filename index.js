@@ -41,6 +41,7 @@ YeePlatform.prototype = {
         var found = 0;
         var newAccessory = null;
         var lightbulbService = null;
+        var nightModeService = null;
         var name;
 
         for (var index in this.yeeAccessories) {
@@ -111,11 +112,13 @@ YeePlatform.prototype = {
         }
 
         if (dev.model == 'ceiling3' || dev.model == 'ceiling4') {
-            nightModeService = new Service.Switch('Night Mode');
-            lightbulbService
+            var nighModeName = 'Night Mode'
+            nightModeService = new Service.Switch(nighModeName);
+            nightModeService
                     .getCharacteristic(Characteristic.On)
                     .on('set', function(value, callback) { that.exeCmd(dev.did, "moon", value, callback);})
                     .value = 0;
+            newAccessory.addService(nightModeService, nighModeName);
         }
 
 
