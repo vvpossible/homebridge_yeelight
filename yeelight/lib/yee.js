@@ -15,7 +15,7 @@ var PORT = 1982;
 var MCAST_ADDR = '239.255.255.250';
 var discMsg = new Buffer('M-SEARCH * HTTP/1.1\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb\r\n');
 
-YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb, ...rest) {
+YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, color_mode, cb, ...rest) {
     var tmp              = loc.split(":");
     var host             = tmp[0];
     var port             = tmp[1];
@@ -34,6 +34,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb, ...re
     this.sock            = null;
     this.ctx             = null;
     this.ct              = transform_ct(ct, this.model, 'dev_to_hk');
+    this.color_mode      = parseInt(color_mode,10);
     this.retry_tmr       = null;
     this.hb_tmr          = null;
     this.hb_lost         = 0;
@@ -45,7 +46,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb, ...re
     this.discovering     = 0;
 
 
-    this.update = function(loc, power, bri, hue, sat, ct, name) {
+    this.update = function(loc, power, bri, hue, sat, ct, color_mode, name) {
         var tmp     = loc.split(":");
         var host    = tmp[0];
         var port    = tmp[1];
@@ -55,6 +56,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb, ...re
         this.bright = bri;
         this.hue    = parseInt(hue, 10);
         this.sat    = parseInt(sat, 10);
+        this.color_mode = parseInt(color_mode, 10);
         this.ct     = transform_ct(ct, this.model, 'dev_to_hk');
         this.name   = name;
     }.bind(this);
@@ -204,21 +206,6 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb, ...re
             this.sendBLECmd();
             return;
         }
-
-        // if (this.model == "ceiling3" || this.model == "ceiling4") {
-        //     if (val <= 50) {
-        //         var req = {
-        //             id: 1,
-        //             method:'set_scene',
-        //             params:['nightlight', 1]
-        //         };
-        //         this.sendCmd(req);
-        //         val = val * 2
-        //     } else {
-        //         var req = {id:1, method: 'set_ct_abx', params: [5500, 'smooth', 500]}
-        //         this.sendCmd(req);
-        //     }
-        // }
 
         this.sendCmd({
             id: 1,
@@ -376,6 +363,7 @@ exports.YeeAgent = function(ip, handler) {
         hue      = "";
         sat      = "";
         ct       = "";
+        color_mode = "";
         name     = "";
 
         headers = message.toString().split("\r\n");
@@ -397,6 +385,8 @@ exports.YeeAgent = function(ip, handler) {
                 sat = headers[i].slice(5);
             if (headers[i].indexOf("ct:") >= 0)
                 ct =  headers[i].slice(4);
+            if (headers[i].indexOf("color_mode:") >= 0)
+                color_mode = headers[i].slice(12);
             if (headers[i].indexOf("name:") >= 0)
                 ame = new Buffer(headers[i].slice(6), 'base64').toString('utf8');
         }
@@ -414,9 +404,9 @@ exports.YeeAgent = function(ip, handler) {
 
         if (did in this.devices) {
             this.log("already in device list!");
-            this.devices[did].update(loc, power, bright, hue, sat, ct, name);
+            this.devices[did].update(loc, power, bright, hue, sat, ct, name, color_mode);
         } else {
-            this.devices[did] = new YeeDevice(did, loc, model, power, bright, hue, sat, ct, name, this.devPropChange);
+            this.devices[did] = new YeeDevice(did, loc, model, power, bright, hue, sat, ct, name, color_mode, this.devPropChange);
             this.handler.onDevFound(this.devices[did]);
         }
 

@@ -112,13 +112,23 @@ YeePlatform.prototype = {
         }
 
         if (dev.model == 'ceiling3' || dev.model == 'ceiling4') {
+            const colorModeValue = 0;
+            if (dev.color_mode == 5) {
+                colorModeValue = 1;
+            }
             var nighModeName = 'Night Mode'
-            nightModeService = new Service.Switch(nighModeName);
+            if (found) {
+                nightModeService = newAccessory.getService(Service.Switch);
+            } else {
+                nightModeService = new Service.Switch(nighModeName);
+            }
             nightModeService
                     .getCharacteristic(Characteristic.On)
                     .on('set', function(value, callback) { that.exeCmd(dev.did, "moon", value, callback);})
-                    .value = 0;
-            newAccessory.addService(nightModeService, nighModeName);
+                    .value = colorModeValue;
+            if (!found) {
+                newAccessory.addService(nightModeService, nighModeName);
+            }
         }
 
 
@@ -131,7 +141,6 @@ YeePlatform.prototype = {
                     .on('get', function(callback){callback(null, dev.ct);})
                     .updateValue(dev.ct);
             }
-            console.log('test!!!!!!!!!!!!!!!', dev.model, dev.color_mode)
         }
 
         newAccessory.reachable = true;
