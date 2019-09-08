@@ -228,7 +228,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, cb, ...re
     }.bind(this);
 
     this.setNightMode = function(val) {
-        var mode = 0
+        var mode = 1
         if (val) {
             mode = 5
         }
