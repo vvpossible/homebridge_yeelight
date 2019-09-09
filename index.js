@@ -43,6 +43,7 @@ YeePlatform.prototype = {
         var lightbulbService = null;
         var nightModeService = null;
         var name;
+        var isNightModeSupported = dev.model == 'ceiling3' || dev.model == 'ceiling4'
 
         for (var index in this.yeeAccessories) {
             var accessory = this.yeeAccessories[index];
@@ -111,7 +112,7 @@ YeePlatform.prototype = {
             }
         }
 
-        if (dev.model == 'ceiling3' || dev.model == 'ceiling4') {
+        if (isNightModeSupported) {
             const colorModeValue = 0;
             if (dev.color_mode == 5) {
                 colorModeValue = 1;
@@ -124,7 +125,7 @@ YeePlatform.prototype = {
             }
             nightModeService
                     .getCharacteristic(Characteristic.On)
-                    .on('set', function(value, callback) { that.exeCmd(dev.did, "moon", value, callback);})
+                    .on('set', function(value, callback) { that.exeCmd(dev.did, "night_mode", value, callback);})
                     .value = colorModeValue;
             if (!found) {
                 newAccessory.addService(nightModeService, nighModeName);
@@ -186,6 +187,7 @@ YeePlatform.prototype = {
         var accessory = dev.ctx;
         var character;
         var lightbulbService = accessory.getService(Service.Lightbulb);
+        var nightModeService = accessory.getService(Service.Switch);
 
         this.log("update accessory prop: " + prop + "value: " + val, dev.model);
 
@@ -199,6 +201,8 @@ YeePlatform.prototype = {
             character = lightbulbService.getCharacteristic(Characteristic.Hue)
         } else if (prop == "ct") {
             character = lightbulbService.getCharacteristic(Characteristic.ColorTemperature)
+        } else if (prop == "night_mode") {
+            character = nightModeService.getCharacteristic(Characteristic.On)
         } else {
             return;
         }
@@ -243,7 +247,7 @@ YeePlatform.prototype = {
             case 'brightness':
                 dev.setBright(value);
                 break;
-            case 'moon':
+            case 'night_mode':
                 dev.setNightMode(value);
             case 'saturation':
                 dev.setColor(dev.hue, value);
