@@ -1,4 +1,4 @@
-var yeeLight = require('./yeelight/lib/yee.js');
+var yeeLight = require('./lib/yee.js');
 var Service, Characteristic, Accessory, UUIDGen;
 
 
@@ -172,7 +172,7 @@ YeePlatform.prototype = {
         if (1) {
             accessory.updateReachability(false);
         } else {
-            this.api.unregisterPlatformAccessories("2", "yeelight", [accessory]);
+            this.api.unregisterPlatformAccessories("homebridge-yeelight", "yeelight", [accessory]);
 
             var idx = this.yeeAccessories.indexOf(accessory);
             if (idx > -1) {
@@ -189,7 +189,7 @@ YeePlatform.prototype = {
         var lightbulbService = accessory.getService(Service.Lightbulb);
         var nightModeService = accessory.getService(Service.Switch);
 
-        this.log("update accessory prop: " + prop + "value: " + val, dev.model);
+        this.log("update accessory prop: " + prop + "value: " + val);
 
         if (prop == "power") {
             character = lightbulbService.getCharacteristic(Characteristic.On)
