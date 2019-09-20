@@ -81,7 +81,8 @@ YeePlatform.prototype = {
                 .on('set', function(value, callback) { that.exeCmd(dev.did, "brightness", value, callback);})
                 .value = dev.bright;
 
-            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == 'ceiling4') {
+            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == "bslamp1" || dev.model == 'ceiling4') {
+
                 lightbulbService
                     .addCharacteristic(Characteristic.Hue)
                     .on('set', function(value, callback) { that.exeCmd(dev.did, "hue", value, callback);})
@@ -98,7 +99,8 @@ YeePlatform.prototype = {
                 .on('set', function(value, callback) { that.exeCmd(dev.did, "brightness", value, callback);})
                 .value = dev.bright;
 
-            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == 'ceiling4') {
+            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == "bslamp1" || dev.model == 'ceiling4') {
+
                 lightbulbService
                     .getCharacteristic(Characteristic.Hue)
                     .on('set', function(value, callback) { that.exeCmd(dev.did, "hue", value, callback);})
