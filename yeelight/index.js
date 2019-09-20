@@ -41,7 +41,9 @@ YeePlatform.prototype = {
         var found = 0;
         var newAccessory = null;
         var lightbulbService = null;
+        var nightModeService = null;
         var name;
+        var isNightModeSupported = dev.model == 'ceiling3' || dev.model == 'ceiling4'
 
         for (var index in this.yeeAccessories) {
             var accessory = this.yeeAccessories[index];
@@ -79,7 +81,8 @@ YeePlatform.prototype = {
                 .on('set', function(value, callback) { that.exeCmd(dev.did, "brightness", value, callback);})
                 .value = dev.bright;
 
-            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == "bslamp1") {
+            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == "bslamp1" || dev.model == 'ceiling4') {
+
                 lightbulbService
                     .addCharacteristic(Characteristic.Hue)
                     .on('set', function(value, callback) { that.exeCmd(dev.did, "hue", value, callback);})
@@ -96,7 +99,8 @@ YeePlatform.prototype = {
                 .on('set', function(value, callback) { that.exeCmd(dev.did, "brightness", value, callback);})
                 .value = dev.bright;
 
-            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == "bslamp1") {
+            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == "bslamp1" || dev.model == 'ceiling4') {
+
                 lightbulbService
                     .getCharacteristic(Characteristic.Hue)
                     .on('set', function(value, callback) { that.exeCmd(dev.did, "hue", value, callback);})
@@ -107,6 +111,26 @@ YeePlatform.prototype = {
                     .getCharacteristic(Characteristic.Saturation)
                     .on('set', function(value, callback) { that.exeCmd(dev.did, "saturation", value, callback);})
                     .value = dev.sat;
+            }
+        }
+
+        if (isNightModeSupported) {
+            const colorModeValue = 0;
+            if (dev.color_mode == 5) {
+                colorModeValue = 1;
+            }
+            var nighModeName = 'Night Mode'
+            if (found) {
+                nightModeService = newAccessory.getService(Service.Switch);
+            } else {
+                nightModeService = new Service.Switch(nighModeName);
+            }
+            nightModeService
+                    .getCharacteristic(Characteristic.On)
+                    .on('set', function(value, callback) { that.exeCmd(dev.did, "night_mode", value, callback);})
+                    .value = colorModeValue;
+            if (!found) {
+                newAccessory.addService(nightModeService, nighModeName);
             }
         }
 
@@ -165,6 +189,7 @@ YeePlatform.prototype = {
         var accessory = dev.ctx;
         var character;
         var lightbulbService = accessory.getService(Service.Lightbulb);
+        var nightModeService = accessory.getService(Service.Switch);
 
         this.log("update accessory prop: " + prop + "value: " + val);
 
@@ -178,6 +203,8 @@ YeePlatform.prototype = {
             character = lightbulbService.getCharacteristic(Characteristic.Hue)
         } else if (prop == "ct") {
             character = lightbulbService.getCharacteristic(Characteristic.ColorTemperature)
+        } else if (prop == "night_mode") {
+            character = nightModeService.getCharacteristic(Characteristic.On)
         } else {
             return;
         }
@@ -222,6 +249,8 @@ YeePlatform.prototype = {
             case 'brightness':
                 dev.setBright(value);
                 break;
+            case 'night_mode':
+                dev.setNightMode(value);
             case 'saturation':
                 dev.setColor(dev.hue, value);
                 break;
