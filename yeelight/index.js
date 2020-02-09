@@ -13,12 +13,16 @@ module.exports = function(homebridge) {
 }
 
 function YeePlatform(log, config, api) {
+    if (null == config) {
+	     log("No platform added to the config. Skipping this plugin");
+       return;
+    }
     log("YeePlatform Init");
 
     this.log            = log;
     this.config         = config;
     this.yeeAccessories = [];
-    
+    log(config);
     var platform = this;
 
     if (api) {
