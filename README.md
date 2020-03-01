@@ -15,6 +15,12 @@ This repository contains the Yeelight plugin for homebridge.
 
 ### Configuration
 1. Enable developer mode of your Yeelight bulb, Yeelight Strip or Yeelight Ceiling lamp.
+2. Add the plugin to your platform section in the config.json of your homebridge installation. See config.json for an example.
+
+        {
+            "platform" : "yeelight",
+            "name" : "yeelight"
+        }
 
 ### Run it
 1. From source code

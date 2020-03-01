@@ -177,7 +177,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, color_mod
     this.setPower = function(is_on) {
         this.power = is_on;
 
-        if (this.model == "bedside") {
+        if (this.model == "bedside" || model == 'candela') {
             bleCmd[0] = 0x43;
             bleCmd[1] = 0x40;
             bleCmd[2] = is_on ? 0x01 : 0x02;
@@ -201,7 +201,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, color_mod
     this.setBright = function(val) {
         this.bright = val;
 
-        if (this.model == "bedside") {
+        if (this.model == "bedside" || model == 'candela') {
             bleCmd[0] = 0x43;
             bleCmd[1] = 0x42;
             bleCmd[2] = parseInt(val.toString(16), 16);
@@ -463,7 +463,10 @@ exports.YeeAgent = function(ip, handler) {
 
             if (localName && localName.indexOf("XMCTD_") >= 0) {
                 that.log("found Yeelight Bedside lamp: " + peripheral.address);
-                that.handleBLEDevice(peripheral);
+                that.handleBLEDevice(peripheral, "bedside");
+            } else if (localName && localName.indexOf("Candela") >= 0) {
+                that.log("found Yeelight Candela lamp: " + peripheral.address);
+                that.handleBLEDevice(peripheral, "candela");
             }
         });
     }.bind(this);
@@ -481,7 +484,7 @@ exports.YeeAgent = function(ip, handler) {
         this.log("stop this round of scan");
     }.bind(this);
 
-    this.handleBLEDevice = function(pdev) {
+    this.handleBLEDevice = function(pdev, model) {
         var did = pdev.address;
         var that = this;
 
@@ -492,7 +495,7 @@ exports.YeeAgent = function(ip, handler) {
 
             that.devices[did] = new YeeDevice(did,
                                               "0.0.0.0:0",
-                                              "bedside",
+                                              model,
                                               "on",
                                               "100",
                                               "360",
@@ -525,7 +528,14 @@ exports.YeeAgent = function(ip, handler) {
                 } else {
                     that.log("connect ok: " + did);
 
-                    pdev.discoverServices(['8e2f0cbd1a664b53ace6b494e25f87bd'], function(error, services) {
+                    var serviceId;
+                    if (model == 'candela') {
+                      serviceId = 'fe87';
+                    } else {
+                      serviceId = '8e2f0cbd1a664b53ace6b494e25f87bd';
+                    }
+
+                    pdev.discoverServices([serviceId], function(error, services) {
                         that.log('discovered services');
                         that.devices[did].discovering = 0;
                         var deviceInformationService = services[0];
@@ -584,29 +594,34 @@ exports.YeeAgent = function(ip, handler) {
             else
                 dev.propChangeCb(dev, 'power', 0);
 
-            dev.propChangeCb(dev, 'bright', data[8]);
+            var brightness;
+            if (dev.model == 'candela') {
+                brightness = data[3];
+            } else if (dev.model == 'bedside') {
+                brightness = data[8];
 
-            switch (data[3]) {
-                case 2: // "sunshine" aka white mode
-                    var temp = (data[9] << 8) + (data[10] & 255);
-                    dev.propChangeCb(dev, 'ct', transform_ct(temp, dev.model, "dev_to_hk"));
-                    dev.propChangeCb(dev, 'sat', 0);
-                    break;
-                case 1: // "color" mode
-                    var red = data[4];
-                    var green = data[5];
-                    var blue = data[6];
-                    var p = rgbToHsv((red << 16) + (green << 8) + blue);
-                    dev.propChangeCb(dev, 'hue', p[0]);
-                    dev.propChangeCb(dev, 'sat', p[1]);
-                    break;
-                case 3:
-                    console.log("lamp entered flow mode");
-                    break;
+                switch (data[3]) {
+                    case 2: // "sunshine" aka white mode
+                        var temp = (data[9] << 8) + (data[10] & 255);
+                        dev.propChangeCb(dev, 'ct', transform_ct(temp, dev.model, "dev_to_hk"));
+                        dev.propChangeCb(dev, 'sat', 0);
+                        break;
+                    case 1: // "color" mode
+                        var red = data[4];
+                        var green = data[5];
+                        var blue = data[6];
+                        var p = rgbToHsv((red << 16) + (green << 8) + blue);
+                        dev.propChangeCb(dev, 'hue', p[0]);
+                        dev.propChangeCb(dev, 'sat', p[1]);
+                        break;
+                    case 3:
+                        console.log("lamp entered flow mode");
+                        break;
+                }
             }
-
-            console.log("power: " + data[2] + " bright: " + data[8]);
-        }   
+            dev.propChangeCb(dev, 'bright', brightness);
+            console.log("power: " + data[2] + " bright: " + brightness);
+        }
     }.bind(this);
 };
 
