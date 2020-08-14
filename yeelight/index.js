@@ -1,299 +1,239 @@
-var yeeLight = require('./lib/yee.js');
-var Service, Characteristic, Accessory, UUIDGen;
+"use strict";
 
+const https = require('https');
+const crypto = require('crypto');
+
+const DysonLinkAccessoryModule = require("./DysonLinkAccessory");
+const DysonLinkDevice = require("./DysonLinkDevice").DysonLinkDevice;
+const DysonLinkAccessory = DysonLinkAccessoryModule.DysonLinkAccessory;
+
+var Accessory, Service, Characteristic, UUIDGen;
 
 module.exports = function(homebridge) {
+    console.log("homebridge API version: " + homebridge.version);
+
+    // Accessory must be created from PlatformAccessory Constructor
     Accessory = homebridge.platformAccessory;
 
+    // Service and Characteristic are from hap-nodejs
     Service = homebridge.hap.Service;
     Characteristic = homebridge.hap.Characteristic;
     UUIDGen = homebridge.hap.uuid;
 
-    homebridge.registerPlatform("homebridge-yeelight", "yeelight", YeePlatform, true);
+    DysonLinkAccessoryModule.setHomebridge(homebridge);
+
+    // For platform plugin to be considered as dynamic platform plugin,
+    // registerPlatform(pluginName, platformName, constructor, dynamic), dynamic must be true
+    homebridge.registerPlatform("homebridge-dyson-link", "DysonPlatform", DysonPlatform, true);
 }
 
-function YeePlatform(log, config, api) {
-    log("YeePlatform Init");
+class DysonPlatform {
+    constructor(log, config, api) {
+        this.log = log;
+        this.config = config;
+        this.accessories = [];
 
-    this.log            = log;
-    this.config         = config;
-    this.yeeAccessories = [];
-    
-    var platform = this;
+        if (api) {
+            // Save the API object as plugin needs to register new accessory via this object.
+            this.api = api;
+            var platform = this;
+            // Listen to event "didFinishLaunching", this means homebridge already finished loading cached accessories
+            // Platform Plugin should only register new accessory that doesn't exist in homebridge after this event.
+            // Or start discover new accessories
+            this.api.on('didFinishLaunching', () => {
+                platform.log("Finished launching. Start to create accessory from config");
+                // Check if the accessories is null as this may be called from second instance of homebrdige too
+                if (this.config && this.config.accessories) {
+                    let accountPassword = this.config.password || process.env.DYSON_PASSWORD;
+                    let accountEmail = this.config.email || process.env.DYSON_EMAIL;
+                    this.getDevicesFromAccount(accountEmail, accountPassword, config.country, (accountDevices) => {
+                        this.config.accessories.forEach((accessory) => {
+                            let nightModeVisible = accessory.nightModeVisible;
+                            if(nightModeVisible == null || nightModeVisible == undefined) {
+                                platform.log.debug("no night mode visible value, default to true");
+                                nightModeVisible = true;
+                            }
+                            let focusModeVisible = accessory.focusModeVisible;
+                            if(focusModeVisible == null || focusModeVisible == undefined) {
+                                platform.log.debug("no focus mode visible value, default to true");
+                                focusModeVisible = true;
+                            }
+                            let autoModeVisible = accessory.autoModeVisible;
+                            if(autoModeVisible == null || autoModeVisible == undefined) {
+                                platform.log.debug("no auto mode visible value, default to true");
+                                autoModeVisible = true;
+                            }
+                            let deviceInfo = accountDevices[accessory.serialNumber];
+                            var password = ''
+                            if (deviceInfo) {
+                                platform.log("Use device password from account");
+                                password = deviceInfo.password;
+                                accessory.serialNumber = 'DYSON-'+accessory.serialNumber+'-'+deviceInfo.ProductType;
+                            }
+                            else if (accessory.password) {
+                                platform.log("Use device password from config file");
+                                password = crypto.createHash('sha512').update(accessory.password, "utf8").digest("base64");
+                            }
+                            else {
+                                platform.log.error("Missing password for device with serial number " + accessory.serialNumber + ", devices found on your account: " + Object.keys(accountDevices).join(", "));
+                                return;
+                            }
+                            platform.log(accessory.displayName + " IP:" + accessory.ip + " Serial Number:" + accessory.serialNumber);
+                            let device = new DysonLinkDevice(accessory.displayName, accessory.ip, accessory.serialNumber, password, platform.log);
+                            if (device.valid) {
+                                platform.log("Device serial number format valids");
+                                let uuid = UUIDGen.generate(accessory.serialNumber);
+                                // Check if the accessory got cached
+                                let cachedAccessory = platform.accessories.find((item) => item.UUID === uuid);
+                                if (!cachedAccessory) {
+                                    platform.log("Device not cached. Create a new one");
+                                    let dysonAccessory = new Accessory(accessory.displayName, uuid);
+                                    new DysonLinkAccessory(accessory.displayName, device, dysonAccessory, platform.log, nightModeVisible, focusModeVisible, autoModeVisible);
+                                    platform.api.registerPlatformAccessories("homebridge-dyson-link", "DysonPlatform", [dysonAccessory]);
+                                    platform.accessories.push(accessory);
+                                } else {
+                                    platform.log("Device cached. Try to update this");
+                                    cachedAccessory.displayName = accessory.displayName;
+                                    new DysonLinkAccessory(accessory.displayName, device, cachedAccessory, platform.log, nightModeVisible, focusModeVisible, autoModeVisible);
+                                    platform.api.updatePlatformAccessories([cachedAccessory]);
+                                }
+                            }
+                        });
+                    });
 
-    if (api) {
-        this.api = api;
+                }
+                else{
+                    platform.log.error("Unable to find config or accessories");
+                }
+            });
+        }
 
-        this.api.on('didFinishLaunching', function() {
-            platform.log("DidFinishLaunching");
-
-            platform.yeeAgent = new yeeLight.YeeAgent("0.0.0.0", platform);
-            platform.yeeAgent.startDisc();
-        }.bind(this));
     }
-}
 
-YeePlatform.prototype = {
-
-    onDevFound: function(dev) {
-        var that = this;
-        var uuid;
-        var found = 0;
-        var newAccessory = null;
-        var lightbulbService = null;
-        var nightModeService = null;
-        var name;
-        var isNightModeSupported = dev.model == 'ceiling3' || dev.model == 'ceiling4'
-
-        for (var index in this.yeeAccessories) {
-            var accessory = this.yeeAccessories[index];
-            if (accessory.context.did == dev.did) {
-                newAccessory = accessory;
-                found = 1;
-                break;
-            }
-        }
-
-        if (found) {
-            this.log("cached accessory: " + newAccessory.context.did);
-            lightbulbService = newAccessory.getService(Service.Lightbulb);
-        } else {
-            uuid = UUIDGen.generate(dev.did);
-            name = dev.did.name || dev.did.substring(dev.did.length-6);
-            this.log("found dev: " + name);
-            newAccessory = new Accessory(name, uuid);
-            newAccessory.context.did = dev.did;
-            newAccessory.context.model = dev.model;
-            lightbulbService = new Service.Lightbulb(name);
-        }
-
-
-        dev.ctx = newAccessory;
-
-        lightbulbService
-            .getCharacteristic(Characteristic.On)
-            .on('set', function(value, callback) { that.exeCmd(dev.did, "power", value, callback);})
-            .value = dev.power;
-
-        if (!found) {
-            lightbulbService
-                .addCharacteristic(Characteristic.Brightness)
-                .on('set', function(value, callback) { that.exeCmd(dev.did, "brightness", value, callback);})
-                .value = dev.bright;
-
-            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == "bslamp1" || dev.model == 'ceiling4') {
-
-                lightbulbService
-                    .addCharacteristic(Characteristic.Hue)
-                    .on('set', function(value, callback) { that.exeCmd(dev.did, "hue", value, callback);})
-                    .value = dev.hue;
-
-                lightbulbService
-                    .addCharacteristic(Characteristic.Saturation)
-                    .on('set', function(value, callback) { that.exeCmd(dev.did, "saturation", value, callback);})
-                    .value = dev.sat;
-            }
-        } else {
-            lightbulbService
-                .getCharacteristic(Characteristic.Brightness)
-                .on('set', function(value, callback) { that.exeCmd(dev.did, "brightness", value, callback);})
-                .value = dev.bright;
-
-            if (dev.model == "color" || dev.model == "stripe" || dev.model == "bedside" || dev.model == "bslamp1" || dev.model == 'ceiling4') {
-
-                lightbulbService
-                    .getCharacteristic(Characteristic.Hue)
-                    .on('set', function(value, callback) { that.exeCmd(dev.did, "hue", value, callback);})
-                    .value = dev.hue;
-
-
-                lightbulbService
-                    .getCharacteristic(Characteristic.Saturation)
-                    .on('set', function(value, callback) { that.exeCmd(dev.did, "saturation", value, callback);})
-                    .value = dev.sat;
-            }
-        }
-
-        if (isNightModeSupported) {
-            const colorModeValue = 0;
-            if (dev.color_mode == 5) {
-                colorModeValue = 1;
-            }
-            var nighModeName = 'Night Mode'
-            if (found) {
-                nightModeService = newAccessory.getService(Service.Switch);
-            } else {
-                nightModeService = new Service.Switch(nighModeName);
-            }
-            nightModeService
-                    .getCharacteristic(Characteristic.On)
-                    .on('set', function(value, callback) { that.exeCmd(dev.did, "night_mode", value, callback);})
-                    .value = colorModeValue;
-            if (!found) {
-                newAccessory.addService(nightModeService, nighModeName);
-            }
-        }
-
-
-        if (dev.model.search(/color.*/g) !== -1 || dev.model.search(/strip.*/g) !== -1) {
-        } else {
-            if (dev.model !== 'mono' && dev.model !== 'ceiling2') {
-                lightbulbService.addOptionalCharacteristic(Characteristic.ColorTemperature);
-                lightbulbService.getCharacteristic(Characteristic.ColorTemperature)
-                    .on('set', function(value, callback) { that.exeCmd(dev.did, "ct", value, callback)})
-                    .on('get', function(callback){callback(null, dev.ct);})
-                    .updateValue(dev.ct);
-            }
-        }
-
-        newAccessory.reachable = true;
-
-        if (!found) {
-            newAccessory.addService(lightbulbService, name);
-            this.yeeAccessories.push(newAccessory);
-            this.api.registerPlatformAccessories("homebridge-yeelight", "yeelight", [newAccessory]);
-        }
-    },
-
-    onDevConnected: function(dev) {
-        this.log("accesseory reachable");
-
-        this.log("dev connected " + dev.did + " " + dev.connected);
-        var accessory = dev.ctx;
-        accessory.updateReachability(true);
-    },
-
-    onDevDisconnected: function(dev) {
-        this.log("accesseory unreachable");
-
-        this.log("dev disconnected " + dev.did + " " + dev.connected);
-        var accessory = dev.ctx;
-
-        // updateReachability seems have bug, but remove the accessory will cause
-        // the name of the light gone, leave the user to decide...
-        if (1) {
-            accessory.updateReachability(false);
-        } else {
-            this.api.unregisterPlatformAccessories("homebridge-yeelight", "yeelight", [accessory]);
-
-            var idx = this.yeeAccessories.indexOf(accessory);
-            if (idx > -1) {
-                this.yeeAccessories.splice(idx, 1);
-            }
-
-            this.yeeAgent.delDevice(dev.did);
-        }
-    },
-
-    onDevPropChange: function(dev, prop, val) {
-        var accessory = dev.ctx;
-        var character;
-        var lightbulbService = accessory.getService(Service.Lightbulb);
-        var nightModeService = accessory.getService(Service.Switch);
-
-        this.log("update accessory prop: " + prop + "value: " + val);
-
-        if (prop == "power") {
-            character = lightbulbService.getCharacteristic(Characteristic.On)
-        } else if (prop == "bright") {
-            character = lightbulbService.getCharacteristic(Characteristic.Brightness)
-        } else if (prop == "sat") {
-            character = lightbulbService.getCharacteristic(Characteristic.Saturation)
-        } else if (prop == "hue") {
-            character = lightbulbService.getCharacteristic(Characteristic.Hue)
-        } else if (prop == "ct") {
-            character = lightbulbService.getCharacteristic(Characteristic.ColorTemperature)
-        } else if (prop == "night_mode") {
-            character = nightModeService.getCharacteristic(Characteristic.On)
-        } else {
-            return;
-        }
-        character.updateValue(val);
-    },
-
-    configureAccessory: function(accessory) {
-        var platform = this;
-
-        //accessory.updateReachability(false);
+    configureAccessory(accessory) {
+        this.log(accessory.displayName, "Configure Accessory");
         accessory.reachable = true;
-
-        accessory.on('identify', function(paired, callback) {
-            platform.log("identify ....");
+        accessory.on('identify', (paired, callback) => {
+            this.log(accessory.displayName, "Identify!!!");
+            callback();
         });
 
-        this.yeeAccessories.push(accessory);
-
-        return;
-    },
-
-    exeCmd: function(did, characteristic, value, callback) {
-
-        dev = this.yeeAgent.getDevice(did);
-
-        if (dev == null) {
-            this.log("no device found for did: " + did);
-            return;
-        }
-
-        switch(characteristic.toLowerCase()) {
-            case 'identify':
-                    this.log("identfy....");
-                dev.setBlink();
-                break;
-            case 'power':
-                dev.setPower(value);
-                break;
-            case 'hue':
-                dev.setColor(value, dev.sat);
-                break;
-            case 'brightness':
-                dev.setBright(value);
-                break;
-            case 'night_mode':
-                dev.setNightMode(value);
-            case 'saturation':
-                dev.setColor(dev.hue, value);
-                break;
-            case 'ct':
-                dev.setCT(value);
-                break;
-            default:
-                break;
-        }
-
-        if (callback)
-            callback();
-    },
-
-    /*
-    configurationRequestHandler : function(context, request, callback) {
-        this.log("Context: ", JSON.stringify(context));
-        this.log("Request: ", JSON.stringify(request));
-
-        // Check the request response
-        if (request && request.response && request.response.inputs && request.response.inputs.name) {
-            this.addAccessory(request.response.inputs.name);
-            return;
-        }
-
-
-        var respDict = {
-            "type": "Interface",
-            "interface": "input",
-            "title": "Add Accessory",
-            "items": [
-                {
-                    "id": "name",
-                    "title": "Name",
-                    "placeholder": "Fancy Light"
-                },
-            ]
-        }
-
-        context.ts = "Hello";
-        //invoke callback to update setup UI
-        callback(respDict);
+        this.accessories.push(accessory);
     }
-    */
-};
 
+    getDevicesFromAccount(email, password, country, callback) {
+        if (!email || !password) {
+            this.log("Dyson email/pass not found, v2 devices may not work")
+            callback({});
+            return;
+        }
+        // Adapted from: https://github.com/CharlesBlonde/libpurecoollink/blob/master/libpurecoollink/utils.py
+        const decryptPassword = (encryptedPassword) => {
+            let key = Uint8Array.from(Array(32), (val, index) => index + 1);
+            let init_vector = new Uint8Array(16);
+            var decipher = crypto.createDecipheriv('aes-256-cbc', key, init_vector);
+            var decryptedPassword = decipher.update(encryptedPassword, 'base64', 'utf8');
+            decryptedPassword = decryptedPassword + decipher.final('utf8');
+            return decryptedPassword
+        };
+
+        if (!country) {
+            country = "US"
+        }
+
+        let DYSON_API_URL = "appapi.cp.dyson.com";
+        if (country == "CN"){            
+            DYSON_API_URL = "appapi.cp.dyson.cn"
+            this.log.info("Country code is CN. Changed to use CN server -" + DYSON_API_URL);
+        }
+
+        let postData = {
+            Email: email,
+            Password: password
+        };
+        let postBody = JSON.stringify(postData);
+
+        
+        var options = {
+            hostname: DYSON_API_URL,
+            port: 443,
+            path: '/v1/userregistration/authenticate?country=' + country,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': postBody.length
+            },
+            rejectUnauthorized: false
+        };
+        // Initial request with email/pass to get authorization tokens of Account and Password
+        var req = https.request(options, (res) => {
+            var data = "";
+            res.setEncoding('utf-8');
+            res.on('data', (chunk) => data += chunk);
+            res.on('end', () => {
+                if (!data) {
+                    this.log.error("Could not login to Dyson")
+                    callback({});
+                    return;
+                }
+
+                let credentials = null;
+
+                try{
+                    credentials = JSON.parse(data);
+                } catch (e) {
+                    this.log.error("JSON parse error.could not login to Dyson")
+                    this.log.error(e)
+                    callback({});
+                    return;
+                }
+
+                let account = credentials.Account;
+                let password = credentials.Password;
+                let auth = 'Basic ' + Buffer.from(account + ':' + password).toString('base64');
+
+                var options = {
+                    hostname: DYSON_API_URL,
+                    port: 443,
+                    path: '/v2/provisioningservice/manifest',
+                    headers: {
+                        "Authorization": auth
+                    },
+                    rejectUnauthorized: false
+                };
+                // Request devices in user's account to get local credentials
+                var req = https.get(options, (res) => {
+                    var data = "";
+                    res.setEncoding('utf-8');
+                    res.on('data', (chunk) => data += chunk);
+                    res.on('end', () => {
+                        if (!data || data.length == 0) {
+                            this.log.error("Could not login to Dyson");
+                            callback({});
+                            return;
+                        }
+                        let devices = JSON.parse(data);
+                        var devicesBySerial = {};
+                        devices.forEach((device) => {
+                            if (device.LocalCredentials) {
+                                let decrypted = JSON.parse(decryptPassword(device.LocalCredentials));
+                                device.password = decrypted.apPasswordHash;
+                                devicesBySerial[device.Serial] = device
+                            }
+                        });
+                        callback(devicesBySerial);
+                    });
+                });
+                req.on('error', function(err) {
+                    this.log.error("Error logging in, check Dyson email, password, and country - "+err);
+                });
+                req.end();
+            });
+        });
+        req.on('error', function(err) {
+            this.log.error("Error logging in, check Dyson email, password, and country - "+err);
+        });
+        req.write(postBody);
+        req.end();
+    }
+}
