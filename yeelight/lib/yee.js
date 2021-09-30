@@ -95,7 +95,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, color_mod
             console.log("send hb to: " + that.did);
 
             that.sendCmd({
-                id: -1,
+                id: 0,
                 method: 'get_prop',
                 params: ['power', 'bright', 'rgb']
             });
@@ -109,7 +109,7 @@ YeeDevice = function (did, loc, model, power, bri, hue, sat, ct, name, color_mod
             rsps.forEach(function (json, idex, array) {
                 try {
                     JSON.parse(json, function(k,v) {
-                       if (k == 'id' && v == -1) {
+                       if (k == 'id') {
                            that.hb_lost = 0;
                        }
 
